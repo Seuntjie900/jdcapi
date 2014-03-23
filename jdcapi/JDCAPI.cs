@@ -28,7 +28,7 @@ namespace JDCAPI
         string sUsername = "";
         string sPassword = "";
         string sGAcode = "";
-        private string hash = "";
+        private string hash { get { return privatehash; } set { privatehash = value; } }
         public double Balance { get; private set; }
         public double Bankroll { get; private set; }
         public long Bets { get; private set; }
@@ -361,6 +361,14 @@ namespace JDCAPI
             return tmpDate;   
         }
 
+        public static DateTime ToDateTime2(string milliseconds)
+        {
+            DateTime tmpDate = DateTime.Parse("1970/01/01 00:00:00");
+            tmpDate = tmpDate.AddSeconds(long.Parse(milliseconds));
+            tmpDate += (DateTime.Now - DateTime.UtcNow);
+            return tmpDate;
+        }
+
         private void pollingLoop()
         {
             while (active)
@@ -460,10 +468,7 @@ namespace JDCAPI
                 }
                 else if (s.Contains("old_results"))
                 {
-
                     ProcessOldResults(s);
-
-
                 }
                 else if (s.Contains("timeout"))
                 {
@@ -497,17 +502,84 @@ namespace JDCAPI
                             case "login_error": if (OnLoginError != null && !logginging) OnLoginError(tmp); break;
                             case "wins": if (OnWins != null && !logginging) OnWins(tmp); break;
                             case "losses": if (OnLossess != null && !logginging) OnLossess(tmp); break;
-                            case "details": if (OnDetails != null && !logginging) OnDetails(tmp); break;
+                            //case "details": if (OnDetails != null && !logginging) OnDetails(tmp); break;
                             case "max_profit": if (OnMaxProfit != null && !logginging) OnMaxProfit(tmp); break;
                             case "new_client_seed": if (OnNewClientSeed != null && !logginging) OnNewClientSeed(tmp); break;
                             case "address": if (OnAddress != null && !logginging) OnAddress(tmp); break;
                             case "pong": if (OnPong != null && !logginging) OnPong(); break;
-                            //case "reload": Reconnect(); break;
+                            case "reload": Reconnect(); break;
                         }
                     }
                     catch
                     {
+                        if (s.Contains("details"))
+                        {
+                            string s3 = s.Replace(" ", "") ;
+                            Roll tmp = new Roll();
+                            string date = s3.Substring(s3.IndexOf("moment") + 8, 10);
+                            tmp.date = ToDateTime2(date);
+//                            tmp.date = DateTime.Parse(date);
+                           
+                            string id = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+                            id = id.Substring(id.IndexOf(">") + 1);
+                            tmp.betid = long.Parse(id);
 
+                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+                            string user = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+                            user = user.Substring(user.IndexOf(">") + 1);
+                            tmp.userid = long.Parse(user);
+                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+                            string multiplier = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+                            multiplier = multiplier.Substring(multiplier.IndexOf(">") + 1).Replace("x","");
+                            tmp.multiplier = decimal.Parse(multiplier);
+                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+                            string stake = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+                            stake = stake.Substring(stake.IndexOf(">") + 1).ToLower().Replace("doge","").Replace("btc","").Replace(" ","");
+                            tmp.stake = decimal.Parse(stake);
+                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+                            string profit = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+                            profit = profit.Substring(profit.IndexOf(">") + 1).ToLower().Replace("doge", "").Replace("btc", "").Replace(" ", "");
+                            tmp.profit = decimal.Parse(profit);
+                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+                            string chance = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+                            chance = chance.Substring(chance.IndexOf(">") + 1).ToLower().Replace("%", "").Replace(" ", "");
+                            tmp.chance = decimal.Parse(chance);
+                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+                            if (s3.Contains("&gt"))
+                                tmp.high=true;
+                            else
+                                tmp.high=false;
+                            //s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+                            string target = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+                            target = target.Substring(target.IndexOf(">") + 1).ToLower().Replace("%", "").Replace(" ", "");
+                            tmp.target = decimal.Parse(target);
+                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+                            string lucky = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+                            lucky = lucky.Substring(lucky.IndexOf(">") + 1).ToLower().Replace("%", "").Replace(" ", "");
+                            tmp.lucky = decimal.Parse(lucky);
+                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+                            string result = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+                            result = result.Substring(result.IndexOf(">") + 1);
+                            tmp.result = result.Contains("lose") ? 0 : 1;
+                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+                            string hash = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+                            hash = hash.Substring(hash.IndexOf(">") + 1);
+                            tmp.hash = hash;
+                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+                            string server = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+                            server = server.Substring(server.IndexOf(">") + 1);
+                            tmp.server_seed = server;
+                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+                            string client = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+                            client = client.Substring(client.IndexOf(">") + 1);
+                            tmp.client_seed = client;
+                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+                            string nonce = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+                            nonce = nonce.Substring(nonce.IndexOf(">") + 1).ToLower().Replace(" ", "");
+                            tmp.nonce = long.Parse(nonce);
+                            if (OnRoll != null && !logginging) OnRoll(tmp);
+                        }
                     }
                 } 
             }
@@ -974,7 +1046,9 @@ namespace JDCAPI
         //on History, still need to Figure out what this does....
 
 
-
+        //on roll - gets the result of a roll requested by user
+        public delegate void dRoll(Roll roll);
+        public event dRoll OnRoll;
         
 
 
@@ -983,7 +1057,7 @@ namespace JDCAPI
         //used for logging and debugging stuff
         //will probably get removed
         bool writing = false;
-        bool logging = true;
+        bool logging = false;
         void writelog(string msg)
         {
             try

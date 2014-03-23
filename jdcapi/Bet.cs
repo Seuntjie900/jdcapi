@@ -23,4 +23,23 @@ namespace JDCAPI
 
         
     }
+
+    public class Roll
+    {
+        public long betid { get; set; }
+        public DateTime date { get; set; }
+        public long userid { get; set; }
+        public decimal multiplier { get; set; }
+        public decimal stake { get; set; }
+        public decimal profit { get; set; }
+        public decimal chance { get; set; }
+        public decimal target { get; set; }
+        public bool high { get; set; }
+        public decimal lucky { get; set; }
+        public int result { get; set; }
+        public string hash { get; set; }
+        public string server_seed { get; set; }
+        public string client_seed { get; set; }
+        public long nonce { get; set; }
+    }
 }
