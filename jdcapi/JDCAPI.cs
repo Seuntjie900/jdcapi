@@ -431,8 +431,11 @@ namespace JDCAPI
                 }
 
             }
-            catch
+            catch (Exception e)
             {
+                string s2 = e.Message;
+                if (logging)
+                    writelog(s2);
                 //active = false;
             }
         }
@@ -913,11 +916,13 @@ namespace JDCAPI
                 HttpWebResponse EmitResponse = (HttpWebResponse)hwrEmit.GetResponse();
                 string sEmitResponse = new StreamReader(EmitResponse.GetResponseStream()).ReadToEnd();
                 StartPorcessing(sEmitResponse);
-                
+               
                 //return false;
             }
-            catch
+            catch (Exception e)
             {
+                if (logging)
+                    writelog(e.Message);
                 //return true;
             }
             inconnection = false;
