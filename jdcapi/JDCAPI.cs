@@ -373,6 +373,14 @@ namespace JDCAPI
         {
             while (active)
             {
+                for (int i = 0; i < request.CookieContainer.GetCookies(request.RequestUri).Count; i++)
+                {
+                    if (request.CookieContainer.GetCookies(request.RequestUri)[i].Name == "cf_clearance" && request.CookieContainer.GetCookies(request.RequestUri)[i].Expired)
+                    {
+                        Thread trecon = new Thread(new ThreadStart(Reconnect));
+                        trecon.Start();
+                    }
+                }
                 if (!inconnection)
                 {
                     inconnection = true;
@@ -415,7 +423,7 @@ namespace JDCAPI
                     //UpdateLog(s2);
                     if (s2 == ("7:::1+0"))
                     {
-                        if (++dcount > 5)
+                        if (++dcount > 2)
                         {
                             dcount = 0;
                             Thread trecon = new Thread(new ThreadStart(Reconnect));
@@ -893,12 +901,12 @@ namespace JDCAPI
         
         private void Emit(object Message)
         {
-            while (inconnection)
+            /*while (inconnection)
             {
                 Thread.Sleep(10);
-            }
+            }*/
 
-            inconnection = true;
+            //inconnection = true;
 
             try
             {
@@ -914,7 +922,7 @@ namespace JDCAPI
                 }
 
                 HttpWebResponse EmitResponse = (HttpWebResponse)hwrEmit.GetResponse();
-                string sEmitResponse = new StreamReader(EmitResponse.GetResponseStream()).ReadToEnd();
+                string sEmitResponse = new StreamReader(EmitResponse.GetResponseStream()).ReadToEnd();                
                 StartPorcessing(sEmitResponse);
                
                 //return false;
