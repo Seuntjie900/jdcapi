@@ -443,7 +443,7 @@ namespace JDCAPI
             {
                 string s2 = e.Message;
                 if (logging)
-                    writelog(s2);
+                    writelog("caught!" + s2);
                 //active = false;
             }
         }
@@ -898,20 +898,15 @@ namespace JDCAPI
             Thread tRoll = new Thread(new ParameterizedThreadStart(Emit));
             tRoll.Start(string.Format("5:::{{\"name\":\"ping\",\"args\":[\"{0}\",\"ping\"]}}", csrf));
         }
-        
+        int emitlevel = 0;
         private void Emit(object Message)
         {
-            /*while (inconnection)
-            {
-                Thread.Sleep(10);
-            }*/
-
             //inconnection = true;
-
             try
             {
                 var hwrEmit = (HttpWebRequest)HttpWebRequest.Create(host + "/socket.io/1/xhr-polling/" + xhrval + "?t=" + CurrentDate());
-
+                if (logging)
+                    writelog(Message as string);
                 hwrEmit.CookieContainer = request.CookieContainer;
                 hwrEmit.Referer = host;
                 hwrEmit.Method = "POST";
@@ -922,18 +917,22 @@ namespace JDCAPI
                 }
 
                 HttpWebResponse EmitResponse = (HttpWebResponse)hwrEmit.GetResponse();
-                string sEmitResponse = new StreamReader(EmitResponse.GetResponseStream()).ReadToEnd();                
+                string sEmitResponse = new StreamReader(EmitResponse.GetResponseStream()).ReadToEnd();
+                if (logging)
+                    writelog(sEmitResponse);
                 StartPorcessing(sEmitResponse);
-               
+                emitlevel = 0;
                 //return false;
             }
             catch (Exception e)
             {
                 if (logging)
-                    writelog(e.Message);
+                    writelog("Failed emit! " + e.Message);
+                if (emitlevel++<5)
+                    Emit(Message);
                 //return true;
             }
-            inconnection = false;
+            //inconnection = false;
         }
 
         #endregion
@@ -1070,7 +1069,7 @@ namespace JDCAPI
         //used for logging and debugging stuff
         //will probably get removed
         bool writing = false;
-        bool logging = false;
+        public bool logging = false;
         void writelog(string msg)
         {
             try
@@ -1078,15 +1077,14 @@ namespace JDCAPI
                 writing = true;
                 using (StreamWriter sq = File.AppendText("jdcapilog.txt"))
                 {
-                    sq.WriteLine(DateTime.Now.ToString() + ">>>   " + msg + "\n");
-                    //UpdateChat(DateTime.Now.ToString() + ">>>   " + msg + "\n");
+                    sq.WriteLine(DateTime.Now.ToString() + " " + msg);
+                    
                 }
                 
             }
             catch
             {
-                //UpdateChat(DateTime.Now.ToString() + ">>>   " + msg + "\n");
-                //UpdateChat(DateTime.Now.ToString() + ">>>   " + "#E# Failed to write to log file" + "\n");
+                
             }
             writing = false;
         }
