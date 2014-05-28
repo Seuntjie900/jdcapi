@@ -29,33 +29,150 @@ namespace JDCAPI
         string sPassword = "";
         string sGAcode = "";
         private string hash { get { return privatehash; } set { privatehash = value; } }
+        /// <summary>
+        /// User Balance
+        /// </summary>
         public double Balance { get; private set; }
+
+        /// <summary>
+        /// Site Bankroll
+        /// </summary>
         public double Bankroll { get; private set; }
+
+        /// <summary>
+        /// Total number of bets on current account
+        /// </summary>
         public long Bets { get; private set; }
+
+        /// <summary>
+        /// Default Chance when opening connection. Automatically set to the last bet placed before closing previous connection
+        /// </summary>
         public double Chance { get; private set; }
+
+        /// <summary>
+        /// House edge, used to calculate winning etc
+        /// </summary>
         public double Edge { get; private set; }
+
+        /// <summary>
+        /// Fee for withdrawing
+        /// </summary>
         public double Fee { get; private set; }
+
+        /// <summary>
+        /// list of people currently being ignored by user
+        /// </summary>
         public string[] Ignores { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
         public decimal Investment { get; set; }
         public double Invest_pft { get; private set; }
+
+        /// <summary>
+        /// total number of losed bets for connected account
+        /// </summary>
         public long Losses { get; private set; }
+
+        /// <summary>
+        /// luck percentage of connected account
+        /// </summary>
         public string Luck { get; private set; }
+
+        /// <summary>
+        /// Maximum profit that can be made by a single bet. Martingale bots should take this into consideration
+        /// </summary>
         public double MaxProfit { get; private set; }
+
+        /// <summary>
+        /// Screen name of connected account
+        /// </summary>
         public string Name { get; private set; }
+
+        /// <summary>
+        /// nonce of current server-client seed combination
+        /// </summary>
         public long Nonce { get; private set; }
+
+        /// <summary>
+        /// invested percentage
+        /// </summary>
         public decimal Percent { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
         public decimal Profit { get; private set; }
+
+        /// <summary>
+        /// Client seed
+        /// </summary>
         public string seed { get; private set; }
+
+        /// <summary>
+        /// User specified settings concerning bet filtering, player watching and auto invest.
+        /// </summary>
         public Settings Settings { get; private set; }
+
+        /// <summary>
+        /// hash of current server seed
+        /// </summary>
         public string shash { get; private set; }
+
+        /// <summary>
+        /// User ID of current connected account
+        /// </summary>
         public string uid { get; private set; }
+
+        /// <summary>
+        /// Login Username of current connected account. Blank if secret url is used
+        /// </summary>
         public string Username { get; private set; }
+
+
         public decimal Wagered { get; private set; }
+
+        /// <summary>
+        /// Total amount of bets won by connected account
+        /// </summary>
         public long Wins { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
         public Stats Stats { get; private set; }
+
+        /// <summary>
+        /// Previously set withdraw address
+        /// </summary>
         public string WDAddress { get; private set; }
+        
+        /// <summary>
+        /// Hash used in secret url, secret url becomes http://just-dice.com/<SecretHash>
+        /// </summary>
         public string SecretHash { get {return hash;}}
+
+       
+        private string sUserAgent = "";
+        /// <summary>
+        /// User agent shown when connecting to site. By default it is JDCAPI -. When this property is set, it is JDCAPI - <user agent>
+        /// </summary>
+        public string UserAgent 
+        { 
+            get 
+            { 
+                return sUserAgent; 
+            } 
+            set
+            {
+                if (string.IsNullOrEmpty(uid)) 
+                    sUserAgent=value; 
+            }
+        }
+
         private Random RandomSeedGen = new Random();
+
 
         public jdInstance()
         {
@@ -132,6 +249,7 @@ namespace JDCAPI
             tmprequest.Referer = host;
             tmprequest.CookieContainer = request.CookieContainer;            
             tmprequest.Method = "POST";
+            tmprequest.UserAgent = "JDCAPI - " + UserAgent;
             using (var writer = new StreamWriter(tmprequest.GetRequestStream()))
             {
                 string writestring = Message as string;
@@ -157,7 +275,7 @@ namespace JDCAPI
         {
             var getxhrval = (HttpWebRequest)HttpWebRequest.Create(host+"/socket.io/1/" + "?t=" + CurrentDate());
             getxhrval.Referer = host;
-
+            getxhrval.UserAgent = "JDCAPI - " + UserAgent;
             getxhrval.CookieContainer = request.CookieContainer;
            
             HttpWebResponse respGetxhrVal = (HttpWebResponse)getxhrval.GetResponse();
@@ -186,6 +304,7 @@ namespace JDCAPI
             request = (HttpWebRequest)HttpWebRequest.Create(host);
             var cookies = new CookieContainer();
             request.CookieContainer = cookies;
+            request.UserAgent = "JDCAPI - " + UserAgent;
             if (!string.IsNullOrEmpty(privatehash))
             {
                 request.CookieContainer.Add(new Cookie("hash", privatehash, "/", (host.Contains("just")) ? ".just-dice.com" : ".doge-dice.com"));
@@ -222,6 +341,7 @@ namespace JDCAPI
                     CookieContainer cookies2 = request.CookieContainer;
                     string req = string.Format(host + "/cdn-cgi/l/chk_jschl?jschl_vc={0}&jschl_answer={1}",  jschl_vc,int.Parse(aval) + 13);
                     request = (HttpWebRequest)HttpWebRequest.Create(req);
+                    request.UserAgent = "JDCAPI - " + UserAgent;
                     request.CookieContainer = cookies2;
                     Response = (HttpWebResponse)request.GetResponse();
                 }
@@ -397,7 +517,7 @@ namespace JDCAPI
         private void GetInfo()
         {
             var MaintainConnectoin = (HttpWebRequest)HttpWebRequest.Create(host+"/socket.io/1/xhr-polling/" + xhrval + "?t=" + CurrentDate());
-
+            MaintainConnectoin.UserAgent = "JDCAPI - " + UserAgent;
             MaintainConnectoin.CookieContainer = request.CookieContainer;
             MaintainConnectoin.Referer = host;
             MaintainConnectoin.Timeout = 10000;
@@ -908,6 +1028,7 @@ namespace JDCAPI
                 if (logging)
                     writelog(Message as string);
                 hwrEmit.CookieContainer = request.CookieContainer;
+                hwrEmit.UserAgent = "JDCAPI - " + UserAgent;
                 hwrEmit.Referer = host;
                 hwrEmit.Method = "POST";
                 using (var writer = new StreamWriter(hwrEmit.GetRequestStream()))
