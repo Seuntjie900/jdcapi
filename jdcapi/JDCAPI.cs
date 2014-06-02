@@ -28,7 +28,7 @@ namespace JDCAPI
         string sUsername = "";
         string sPassword = "";
         string sGAcode = "";
-
+        
 
         /// <summary>
         /// Indicates whether jdcapi is successfully connected to just dice or not
@@ -187,6 +187,45 @@ namespace JDCAPI
             //ChatMessages = new List<Chat>();
         }
 
+        /// <summary>
+        /// asynchronous Connect calls. Same paramaters as normal connect calls.
+        /// Triggers event LoginEnd when login is done.
+        /// </summary>
+        /// <param name="DogeDice"></param>
+        public void BeginConnect(bool DogeDice)
+        {
+            string Params = (DogeDice?"1":"0");
+            Thread ConThread = new Thread(new ParameterizedThreadStart(beginasyncConnecy));
+            ConThread.Start(Params);
+        }
+
+        public void BeginConnect(bool DogeDice, string SecretUrl)
+        {
+            string Params = (DogeDice ? "1" : "0")+"|"+SecretUrl;
+            Thread ConThread = new Thread(new ParameterizedThreadStart(beginasyncConnecy));
+            ConThread.Start(Params);
+        }
+
+        public void BeginConnect(bool DogeDice, string Username, string Password, string GoogleAuth)
+        {
+            string Params = (DogeDice ? "1" : "0")+"|"+Username+"|"+Password+"|"+GoogleAuth;
+            Thread ConThread = new Thread(new ParameterizedThreadStart(beginasyncConnecy));
+            ConThread.Start(Params);
+        }
+
+        private void beginasyncConnecy(object Params)
+        {
+            string[] Paramaters = (Params as string).Split('|');
+            switch (Paramaters.Length)
+            {
+                case 1: Connect((Paramaters[0] == "1" ? true : false)); break;
+                case 2: Connect((Paramaters[0] == "1" ? true : false),Paramaters[1]); break;
+                case 3: Connect((Paramaters[0] == "1" ? true : false), Paramaters[1], Paramaters[2], ""); break;
+                case 4: Connect((Paramaters[0] == "1" ? true : false), Paramaters[1], Paramaters[2], Paramaters[3]); break;
+                default: Connected = false; if (this.LoginEnd != null) this.LoginEnd(false); break;
+            }
+
+        }
 
         /// <summary>
         /// Connects to Just dice or doge dice
@@ -221,10 +260,20 @@ namespace JDCAPI
                 poll = new Thread(new ThreadStart(pollingLoop));
                 poll.Start();
                 Connected = true;
+                if (this.LoginEnd != null)
+                {
+                    this.LoginEnd(Connected);
+                }
                 return Connected;
+
             }
             else
             {
+                Connected = false;
+                if (this.LoginEnd != null)
+                {
+                    this.LoginEnd(Connected);
+                }
                 Connected = false;
                 return Connected;
             }
@@ -293,11 +342,19 @@ namespace JDCAPI
                 Thread poll = new Thread(new ThreadStart(pollingLoop));
                 poll.Start();
                 Connected = true;
+                if (this.LoginEnd != null)
+                {
+                    this.LoginEnd(Connected);
+                }
                 return Connected;
             }
             else
             {
                 Connected = false;
+                if (this.LoginEnd != null)
+                {
+                    this.LoginEnd(Connected);
+                }
                 return Connected;
             }
         }
@@ -1218,8 +1275,9 @@ namespace JDCAPI
         //on roll - gets the result of a roll requested by user
         public delegate void dRoll(Roll roll);
         public event dRoll OnRoll;
-        
 
+        public delegate void dLoginEnd(bool Connected);
+        public event dLoginEnd LoginEnd;
 
         #endregion
 
