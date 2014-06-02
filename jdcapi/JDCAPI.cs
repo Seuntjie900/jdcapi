@@ -28,6 +28,13 @@ namespace JDCAPI
         string sUsername = "";
         string sPassword = "";
         string sGAcode = "";
+
+
+        /// <summary>
+        /// Indicates whether jdcapi is successfully connected to just dice or not
+        /// </summary>
+        public bool Connected { get; private set; }
+
         private string hash { get { return privatehash; } set { privatehash = value; } }
         /// <summary>
         /// User Balance
@@ -188,26 +195,40 @@ namespace JDCAPI
         /// <returns>if connected successfully, returns true</returns>
         public bool Connect(bool DogeDice)
         {
+            
             host = "https://"+((DogeDice)?"doge":"just")+"-dice.com";            
             //Initial request for getting headers and cookies from site
-            getInitalHeaders();
+            bool _Connected = getInitalHeaders();
             getxhrval();
             gotinit = false;
-            while (!gotinit)
+            int counter = 0;
+            while (!gotinit && _Connected)
             {
+                if (counter++ > 4)
+                    _Connected = false;
                  GetInfo();
             }
-            active = true;
-            if (poll != null && poll.IsAlive)
+            if (_Connected)
             {
-                active = false;
-                poll.Abort();
-            }
-            active = true;
+                active = true;
+                if (poll != null && poll.IsAlive)
+                {
+                    active = false;
+                    poll.Abort();
+                }
+                active = true;
 
-            poll = new Thread(new ThreadStart(pollingLoop));
-            poll.Start();
-            return true;
+                poll = new Thread(new ThreadStart(pollingLoop));
+                poll.Start();
+                Connected = true;
+                return Connected;
+            }
+            else
+            {
+                Connected = false;
+                return Connected;
+            }
+
         }
 
 
@@ -237,9 +258,10 @@ namespace JDCAPI
         /// <returns></returns>
         public bool Connect(bool DogeDice, string Username, string Password, string GACode)
         {
+            
             privatehash = (!DogeDice) ? "0f3aa87b64103349a9cabcccbb312e606e9013c3eee8f364b9ee4e91ad2c67d3" : "0fc4126d7045e16c05d18b6fda82324c2f987ac7f51317f317d6488680a37668";
             host = "https://" + ((DogeDice) ? "doge" : "just") + "-dice.com";
-            getInitalHeaders();
+            bool _Connected = getInitalHeaders();
             sUsername = Username;
             sPassword = Password;
             string Message = string.Format("username={0}&password={1}&code={2}", Username, Password, GACode);            
@@ -258,14 +280,26 @@ namespace JDCAPI
             HttpWebResponse EmitResponse = (HttpWebResponse)tmprequest.GetResponse();
             string sEmitResponse = new StreamReader(EmitResponse.GetResponseStream()).ReadToEnd();            
             getxhrval();
-            while (!gotinit)
+            int counter = 0;
+            while (!gotinit && _Connected)
             {
+                if (counter++ > 4)
+                    _Connected = false;
                 GetInfo();
             }
-            active = true;
-            Thread poll = new Thread(new ThreadStart(pollingLoop));
-            poll.Start();
-            return true;
+            if (_Connected)
+            {
+                active = true;
+                Thread poll = new Thread(new ThreadStart(pollingLoop));
+                poll.Start();
+                Connected = true;
+                return Connected;
+            }
+            else
+            {
+                Connected = false;
+                return Connected;
+            }
         }
 
         /// <summary>
@@ -298,7 +332,7 @@ namespace JDCAPI
         /// gets the inital cookies for the connections.
         /// cookies includeL __cfduid, connect.sid, hash. These are required for mainting the same connection
         /// </summary>
-        private void getInitalHeaders()
+        private bool getInitalHeaders()
         {
 
             request = (HttpWebRequest)HttpWebRequest.Create(host);
@@ -348,7 +382,7 @@ namespace JDCAPI
                 }
                 catch
                 {
-
+                    return false;
                 }
             }
             
@@ -416,6 +450,7 @@ namespace JDCAPI
                     }
                 }
             }
+            return true;
         }
 
         /// <summary>
