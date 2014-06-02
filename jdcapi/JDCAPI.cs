@@ -324,13 +324,14 @@ namespace JDCAPI
                 int indexofa = s1.IndexOf("a.value");
                 string aval = s1.Substring(indexofa+10);
                 aval = aval.Substring(0, aval.IndexOf(";")).Replace(" ","");
-                int op1 = int.Parse(aval.Substring(0, aval.IndexOf("+")));
+                
+                int op1 = int.Parse(aval.Substring(0, aval.IndexOf("+")), System.Globalization.CultureInfo.InvariantCulture);
                 int p1 = aval.IndexOf("+") + 1;
                 int p2 = aval.IndexOf("*") - aval.IndexOf("+");
-                int op2 = int.Parse(aval.Substring(aval.IndexOf("+")+1,aval.IndexOf("*")-aval.IndexOf("+")-1));
-                int op3 = int.Parse(aval.Substring(aval.IndexOf("*")+1));
+                int op2 = int.Parse(aval.Substring(aval.IndexOf("+") + 1, aval.IndexOf("*") - aval.IndexOf("+") - 1), System.Globalization.CultureInfo.InvariantCulture);
+                int op3 = int.Parse(aval.Substring(aval.IndexOf("*") + 1), System.Globalization.CultureInfo.InvariantCulture);
                 aval = ((op2 * op3) + op1).ToString();
-                int.Parse(aval);
+                int.Parse(aval, System.Globalization.CultureInfo.InvariantCulture);
                 string jschl_vc = s1.Substring(s1.IndexOf(" name=\"jschl_vc\" value=\""));
                 jschl_vc = jschl_vc.Substring(("name=\"jschl_vc\" value=\"").Length + 1);
                 int len = jschl_vc.IndexOf("\"/>\n");
@@ -339,7 +340,7 @@ namespace JDCAPI
                 {
                     //string content = new WebClient().DownloadString("cdn-cgi/l/chk_jschl?jschl_vc=1bb30f6e73b41c8dd914ccbf64576147&jschl_answer=84");
                     CookieContainer cookies2 = request.CookieContainer;
-                    string req = string.Format(host + "/cdn-cgi/l/chk_jschl?jschl_vc={0}&jschl_answer={1}",  jschl_vc,int.Parse(aval) + 13);
+                    string req = string.Format(host + "/cdn-cgi/l/chk_jschl?jschl_vc={0}&jschl_answer={1}", jschl_vc, int.Parse(aval, System.Globalization.CultureInfo.InvariantCulture) + 13);
                     request = (HttpWebRequest)HttpWebRequest.Create(req);
                     request.UserAgent = "JDCAPI - " + UserAgent;
                     request.CookieContainer = cookies2;
@@ -663,19 +664,19 @@ namespace JDCAPI
                             s3 = s3.Substring(s3.IndexOf("</span>") + 7);
                             string multiplier = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
                             multiplier = multiplier.Substring(multiplier.IndexOf(">") + 1).Replace("x","");
-                            tmp.multiplier = decimal.Parse(multiplier);
+                            tmp.multiplier = decimal.Parse(multiplier, System.Globalization.CultureInfo.InvariantCulture);
                             s3 = s3.Substring(s3.IndexOf("</span>") + 7);
                             string stake = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
                             stake = stake.Substring(stake.IndexOf(">") + 1).ToLower().Replace("doge","").Replace("btc","").Replace(" ","");
-                            tmp.stake = decimal.Parse(stake);
+                            tmp.stake = decimal.Parse(stake, System.Globalization.CultureInfo.InvariantCulture);
                             s3 = s3.Substring(s3.IndexOf("</span>") + 7);
                             string profit = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
                             profit = profit.Substring(profit.IndexOf(">") + 1).ToLower().Replace("doge", "").Replace("btc", "").Replace(" ", "");
-                            tmp.profit = decimal.Parse(profit);
+                            tmp.profit = decimal.Parse(profit, System.Globalization.CultureInfo.InvariantCulture);
                             s3 = s3.Substring(s3.IndexOf("</span>") + 7);
                             string chance = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
                             chance = chance.Substring(chance.IndexOf(">") + 1).ToLower().Replace("%", "").Replace(" ", "");
-                            tmp.chance = decimal.Parse(chance);
+                            tmp.chance = decimal.Parse(chance, System.Globalization.CultureInfo.InvariantCulture);
                             s3 = s3.Substring(s3.IndexOf("</span>") + 7);
                             if (s3.Contains("&gt"))
                                 tmp.high=true;
@@ -684,11 +685,11 @@ namespace JDCAPI
                             //s3 = s3.Substring(s3.IndexOf("</span>") + 7);
                             string target = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
                             target = target.Substring(target.IndexOf(">") + 1).ToLower().Replace("%", "").Replace(" ", "");
-                            tmp.target = decimal.Parse(target);
+                            tmp.target = decimal.Parse(target, System.Globalization.CultureInfo.InvariantCulture);
                             s3 = s3.Substring(s3.IndexOf("</span>") + 7);
                             string lucky = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
                             lucky = lucky.Substring(lucky.IndexOf(">") + 1).ToLower().Replace("%", "").Replace(" ", "");
-                            tmp.lucky = decimal.Parse(lucky);
+                            tmp.lucky = decimal.Parse(lucky, System.Globalization.CultureInfo.InvariantCulture);
                             s3 = s3.Substring(s3.IndexOf("</span>") + 7);
                             string result = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
                             result = result.Substring(result.IndexOf(">") + 1);
@@ -728,8 +729,8 @@ namespace JDCAPI
             Result tmp = json.JsonDeserialize<Result>(JsonString);
             if (tmp.bankroll != null)
             {
-                Bankroll = double.Parse(tmp.bankroll);
-                MaxProfit = double.Parse(tmp.max_profit);
+                Bankroll = double.Parse(tmp.bankroll, System.Globalization.CultureInfo.InvariantCulture);
+                MaxProfit = double.Parse(tmp.max_profit, System.Globalization.CultureInfo.InvariantCulture);
                 Investment = tmp.investment;
                 Invest_pft = tmp.invest_pft;
                 Percent = tmp.percent;
@@ -740,7 +741,7 @@ namespace JDCAPI
                 }
                 else
                 {
-                    Balance = double.Parse(tmp.balance);
+                    Balance = double.Parse(tmp.balance, System.Globalization.CultureInfo.InvariantCulture);
                 }
                 if (tmp.profit == null)
                 {
@@ -748,7 +749,7 @@ namespace JDCAPI
                 }
                 else
                 {
-                    Profit = decimal.Parse(tmp.profit);
+                    Profit = decimal.Parse(tmp.profit, System.Globalization.CultureInfo.InvariantCulture);
                 }
                 
                 if (OnResult != null)
@@ -861,8 +862,8 @@ namespace JDCAPI
             length = JsonString.LastIndexOf(']') - start + 1;
             JsonString = JsonString.Substring(start, length);
             init Initial = json.JsonDeserialize<init>(JsonString);
-            Balance = double.Parse(Initial.balance);
-            Bankroll = Double.Parse(Initial.bankroll);
+            Balance = double.Parse(Initial.balance, System.Globalization.CultureInfo.InvariantCulture);
+            Bankroll = Double.Parse(Initial.bankroll, System.Globalization.CultureInfo.InvariantCulture);
             Bets = Initial.bets;
             Chance = Initial.chance;
             csrf = Initial.csrf;
