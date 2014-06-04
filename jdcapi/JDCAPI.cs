@@ -663,150 +663,184 @@ namespace JDCAPI
 
         private void StartPorcessing(string s2)
         {
-            s2 = s2.Replace(":::", ((char)011).ToString());
-            string[] returns = s2.Split((char)011);
-            foreach (string s in returns)
+            if (s2.Length > 5)
             {
-                if (s.Contains("pong"))
+                List<string> returns = new List<string>();
+                if (s2[0] == '�')
                 {
-                    if (OnPong != null)
+                    while (s2.Length > 0)
                     {
-                        OnPong();
-                    }
-                }
-                if (s.Contains("\"result\""))
-                {
-                    ProcessResult(s);
-                }
-                else if (s.Contains("init"))
-                {
-                    ProcessInit(s);
-                }
-                else if (s.Contains("\"chat\""))
-                {
-                    ProcessChat(s);
-                }
-                else if (s.Contains("set_hash"))
-                {
-                    ProcessSetHash(s);
-                }
-                else if (s.Contains("old_results"))
-                {
-                    ProcessOldResults(s);
-                }
-                else if (s.Contains("timeout"))
-                {
-                    if (OnTimeout != null && !logginging)
-                        OnTimeout();
-                }
-                else if (s.Contains("dismiss") && !logginging)
-                {
-                    if (OnDismiss != null)
-                        OnDismiss();
-                }
-                else //for everything that uses the various class as output
-                {
-                    try
-                    {
-                        Various tmp = ProcessVarious(s);
-                        switch (tmp.name)
+                        if (s2[0] == '�')
                         {
-                            case "invest": if (onInvest != null && !logginging) onInvest(tmp); break;
-                            case "invest_error": if (OnInvestError != null && !logginging) OnInvestError(tmp); break;
-                            case "divest_error": if (OnDivestError != null && !logginging) OnDivestError(tmp); break;
-                            case "wdaddr": if (OnWDAddress != null && !logginging) OnWDAddress(tmp); break;
-                            case "balance": if (OnBalance != null && !logginging) OnBalance(tmp); break;
-                            case "shash": if (OnSecretHash != null && !logginging) OnSecretHash(tmp); break;
-                            case "seed": if (OnClientSeed != null && !logginging) OnClientSeed(tmp); break;
-                            case "bad_seed": if (OnBadClientSeed != null && !logginging) OnBadClientSeed(tmp); break;
-                            case "nonce": if (OnNonce != null && !logginging) OnNonce(tmp); break;
-                            case "jderror": if (OnJDError != null && !logginging) OnJDError(tmp); break;
-                            case "jdmsg": if (OnJDMessage != null && !logginging) OnJDMessage(tmp); break;
-                            case "form_error": if (OnFormError != null && !logginging) OnFormError(tmp); break;
-                            case "login_error": if (OnLoginError != null && !logginging) OnLoginError(tmp); break;
-                            case "wins": if (OnWins != null && !logginging) OnWins(tmp); break;
-                            case "losses": if (OnLossess != null && !logginging) OnLossess(tmp); break;
-                            //case "details": if (OnDetails != null && !logginging) OnDetails(tmp); break;
-                            case "max_profit": if (OnMaxProfit != null && !logginging) OnMaxProfit(tmp); break;
-                            case "new_client_seed": if (OnNewClientSeed != null && !logginging) OnNewClientSeed(tmp); break;
-                            case "address": if (OnAddress != null && !logginging) OnAddress(tmp); break;
-                            case "pong": if (OnPong != null && !logginging) OnPong(); break;
-                            case "reload": Reconnect(); break;
+                            int length = int.Parse(s2.Substring(1, s2.IndexOf('�', 1) - 1));
+                            string tmp = s2.Substring(s2.IndexOf('�', 1) + 1, length);
+                            returns.Add(tmp);
+                            s2 = s2.Substring(s2.IndexOf('�', 1) + length + 1);
                         }
                     }
-                    catch
-                    {
-                        if (s.Contains("details"))
-                        {
-                            string s3 = s.Replace(" ", "") ;
-                            Roll tmp = new Roll();
-                            string date = s3.Substring(s3.IndexOf("moment") + 8, 10);
-                            tmp.date = ToDateTime2(date);
-//                            tmp.date = DateTime.Parse(date);
-                           
-                            string id = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
-                            id = id.Substring(id.IndexOf(">") + 1);
-                            tmp.betid = long.Parse(id);
+                }
+                else if (s2.Substring(0, 4) == "5:::")
+                {
+                    returns.Add(s2);
+                }
+                else
+                {
 
-                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
-                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
-                            string user = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
-                            user = user.Substring(user.IndexOf(">") + 1);
-                            tmp.userid = long.Parse(user);
-                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
-                            string multiplier = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
-                            multiplier = multiplier.Substring(multiplier.IndexOf(">") + 1).Replace("x","");
-                            tmp.multiplier = decimal.Parse(multiplier, System.Globalization.CultureInfo.InvariantCulture);
-                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
-                            string stake = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
-                            stake = stake.Substring(stake.IndexOf(">") + 1).ToLower().Replace("doge","").Replace("btc","").Replace(" ","");
-                            tmp.stake = decimal.Parse(stake, System.Globalization.CultureInfo.InvariantCulture);
-                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
-                            string profit = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
-                            profit = profit.Substring(profit.IndexOf(">") + 1).ToLower().Replace("doge", "").Replace("btc", "").Replace(" ", "");
-                            tmp.profit = decimal.Parse(profit, System.Globalization.CultureInfo.InvariantCulture);
-                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
-                            string chance = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
-                            chance = chance.Substring(chance.IndexOf(">") + 1).ToLower().Replace("%", "").Replace(" ", "");
-                            tmp.chance = decimal.Parse(chance, System.Globalization.CultureInfo.InvariantCulture);
-                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
-                            if (s3.Contains("&gt"))
-                                tmp.high=true;
-                            else
-                                tmp.high=false;
-                            //s3 = s3.Substring(s3.IndexOf("</span>") + 7);
-                            string target = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
-                            target = target.Substring(target.IndexOf(">") + 1).ToLower().Replace("%", "").Replace(" ", "");
-                            tmp.target = decimal.Parse(target, System.Globalization.CultureInfo.InvariantCulture);
-                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
-                            string lucky = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
-                            lucky = lucky.Substring(lucky.IndexOf(">") + 1).ToLower().Replace("%", "").Replace(" ", "");
-                            tmp.lucky = decimal.Parse(lucky, System.Globalization.CultureInfo.InvariantCulture);
-                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
-                            string result = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
-                            result = result.Substring(result.IndexOf(">") + 1);
-                            tmp.result = result.Contains("lose") ? 0 : 1;
-                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
-                            string hash = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
-                            hash = hash.Substring(hash.IndexOf(">") + 1);
-                            tmp.hash = hash;
-                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
-                            string server = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
-                            server = server.Substring(server.IndexOf(">") + 1);
-                            tmp.server_seed = server;
-                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
-                            string client = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
-                            client = client.Substring(client.IndexOf(">") + 1);
-                            tmp.client_seed = client;
-                            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
-                            string nonce = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
-                            nonce = nonce.Substring(nonce.IndexOf(">") + 1).ToLower().Replace(" ", "");
-                            tmp.nonce = long.Parse(nonce);
-                            if (OnRoll != null && !logginging) OnRoll(tmp);
+                }
+
+                foreach (string s in returns)
+                {
+                    if (s.Length > 13)
+                    {
+                        string tmpstring = s.Substring(13, s.IndexOf("\"", 13) - 13);
+                        if (tmpstring.Contains("pong"))
+                        {
+                            if (OnPong != null)
+                            {
+                                OnPong();
+                            }
+                        }
+                        if (tmpstring.Contains("\"result\""))
+                        {
+                            ProcessResult(s);
+                        }
+                        else if (tmpstring.Contains("init"))
+                        {
+                            ProcessInit(s);
+                        }
+                        else if (tmpstring.Contains("chat"))
+                        {
+                            ProcessChat(s);
+                        }
+                        else if (tmpstring.Contains("set_hash"))
+                        {
+                            ProcessSetHash(s);
+                        }
+                        else if (tmpstring.Contains("old_results"))
+                        {
+                            ProcessOldResults(s);
+                        }
+                        else if (tmpstring.Contains("timeout"))
+                        {
+                            if (OnTimeout != null && !logginging)
+                                OnTimeout();
+                        }
+                        else if (tmpstring.Contains("dismiss") && !logginging)
+                        {
+                            if (OnDismiss != null)
+                                OnDismiss();
+                        }
+                        else if (tmpstring.Contains("details") && !logginging)
+                        {
+                            ProcessDetails(s);
+                        }
+                        else //for everything that uses the various class as output
+                        {
+                            try
+                            {
+                                Various tmp = ProcessVarious(s);
+                                switch (tmp.name)
+                                {
+                                    case "invest": if (onInvest != null && !logginging) onInvest(tmp); break;
+                                    case "invest_error": if (OnInvestError != null && !logginging) OnInvestError(tmp); break;
+                                    case "divest_error": if (OnDivestError != null && !logginging) OnDivestError(tmp); break;
+                                    case "wdaddr": if (OnWDAddress != null && !logginging) OnWDAddress(tmp); break;
+                                    case "balance": if (OnBalance != null && !logginging) OnBalance(tmp); break;
+                                    case "shash": if (OnSecretHash != null && !logginging) OnSecretHash(tmp); break;
+                                    case "seed": if (OnClientSeed != null && !logginging) OnClientSeed(tmp); break;
+                                    case "bad_seed": if (OnBadClientSeed != null && !logginging) OnBadClientSeed(tmp); break;
+                                    case "nonce": if (OnNonce != null && !logginging) OnNonce(tmp); break;
+                                    case "jderror": if (OnJDError != null && !logginging) OnJDError(tmp); break;
+                                    case "jdmsg": if (OnJDMessage != null && !logginging) OnJDMessage(tmp); break;
+                                    case "form_error": if (OnFormError != null && !logginging) OnFormError(tmp); break;
+                                    case "login_error": if (OnLoginError != null && !logginging) OnLoginError(tmp); break;
+                                    case "wins": if (OnWins != null && !logginging) OnWins(tmp); break;
+                                    case "losses": if (OnLossess != null && !logginging) OnLossess(tmp); break;
+                                    //case "details": if (OnDetails != null && !logginging) OnDetails(tmp); break;
+                                    case "max_profit": if (OnMaxProfit != null && !logginging) OnMaxProfit(tmp); break;
+                                    case "new_client_seed": if (OnNewClientSeed != null && !logginging) OnNewClientSeed(tmp); break;
+                                    case "address": if (OnAddress != null && !logginging) OnAddress(tmp); break;
+                                    case "pong": if (OnPong != null && !logginging) OnPong(); break;
+                                    case "reload": Reconnect(); break;
+                                }
+                            }
+                            catch
+                            {
+
+                            }
                         }
                     }
-                } 
+                }
             }
+        }
+
+        private void ProcessDetails(string tmpstring)
+        {
+            string s3 = tmpstring.Replace(" ", "");
+            Roll tmp = new Roll();
+            string date = s3.Substring(s3.IndexOf("moment") + 8, 10);
+            tmp.date = ToDateTime2(date);
+            //                            tmp.date = DateTime.Parse(date);
+
+            string id = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+            id = id.Substring(id.IndexOf(">") + 1);
+            tmp.betid = long.Parse(id);
+
+            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+            string user = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+            user = user.Substring(user.IndexOf(">") + 1);
+            tmp.userid = long.Parse(user);
+            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+            string multiplier = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+            multiplier = multiplier.Substring(multiplier.IndexOf(">") + 1).Replace("x", "");
+            tmp.multiplier = decimal.Parse(multiplier, System.Globalization.CultureInfo.InvariantCulture);
+            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+            string stake = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+            stake = stake.Substring(stake.IndexOf(">") + 1).ToLower().Replace("doge", "").Replace("btc", "").Replace(" ", "");
+            tmp.stake = decimal.Parse(stake, System.Globalization.CultureInfo.InvariantCulture);
+            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+            string profit = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+            profit = profit.Substring(profit.IndexOf(">") + 1).ToLower().Replace("doge", "").Replace("btc", "").Replace(" ", "");
+            tmp.profit = decimal.Parse(profit, System.Globalization.CultureInfo.InvariantCulture);
+            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+            string chance = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+            chance = chance.Substring(chance.IndexOf(">") + 1).ToLower().Replace("%", "").Replace(" ", "");
+            tmp.chance = decimal.Parse(chance, System.Globalization.CultureInfo.InvariantCulture);
+            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+            if (s3.Contains("&gt"))
+                tmp.high = true;
+            else
+                tmp.high = false;
+            //s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+            string target = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+            target = target.Substring(target.IndexOf(">") + 1).ToLower().Replace("%", "").Replace(" ", "");
+            tmp.target = decimal.Parse(target, System.Globalization.CultureInfo.InvariantCulture);
+            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+            string lucky = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+            lucky = lucky.Substring(lucky.IndexOf(">") + 1).ToLower().Replace("%", "").Replace(" ", "");
+            tmp.lucky = decimal.Parse(lucky, System.Globalization.CultureInfo.InvariantCulture);
+            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+            string result = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+            result = result.Substring(result.IndexOf(">") + 1);
+            tmp.result = result.Contains("lose") ? 0 : 1;
+            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+            string hash = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+            hash = hash.Substring(hash.IndexOf(">") + 1);
+            tmp.hash = hash;
+            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+            string server = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+            server = server.Substring(server.IndexOf(">") + 1);
+            tmp.server_seed = server;
+            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+            string client = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+            client = client.Substring(client.IndexOf(">") + 1);
+            tmp.client_seed = client;
+            s3 = s3.Substring(s3.IndexOf("</span>") + 7);
+            string nonce = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
+            nonce = nonce.Substring(nonce.IndexOf(">") + 1).ToLower().Replace(" ", "");
+            tmp.nonce = long.Parse(nonce);
+            if (OnRoll != null && !logginging) OnRoll(tmp);
         }
 
         #region processing socket.on results from getinfo
@@ -978,7 +1012,7 @@ namespace JDCAPI
             this.Stats = Initial.stats;
             WDAddress = Initial.wdaddr;
             uid = Initial.uid;
-            for (int i = 0; i < Initial.chat.Count; i += 2)
+            for (int i = 0; i < Initial.chat.Count-1; i += 2)
             {
                 Chat tmpChat = json.JsonDeserialize<initchat>(Initial.chat[i].ToString()).ConvertToChat(Initial.chat[i + 1].ToString());
                 if (OnOldChat != null && !logginging)
