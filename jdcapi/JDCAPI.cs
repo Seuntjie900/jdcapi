@@ -7,7 +7,7 @@ using System.Web;
 using System.IO;
 using System.Threading;
 using System.Net;
-
+using Microsoft.JScript;
 namespace JDCAPI
 {
     public class jdInstance
@@ -412,17 +412,27 @@ namespace JDCAPI
             {
                 Response = (HttpWebResponse)e.Response;
                 string s1 = new StreamReader(Response.GetResponseStream()).ReadToEnd();
-                int indexofa = s1.IndexOf("a.value");
-                string aval = s1.Substring(indexofa+10);
-                aval = aval.Substring(0, aval.IndexOf(";")).Replace(" ","");
+                string tmp = s1.Substring(s1.IndexOf("var t,r,a,f,"));
+                string varfirst =tmp.Substring("var t,r,a,f,".Length+1, tmp.IndexOf("=") - "var t,r,a,f,".Length-1);
+                string varsec = tmp.Substring(tmp.IndexOf("{\"")+2, tmp.IndexOf("\"", tmp.IndexOf("{\"") + 3) - tmp.IndexOf("{\"")-2);
+                string var = varfirst + "." + varsec;
+                string varline = "var " + tmp.Substring("var t,r,a,f,".Length + 1, tmp.IndexOf(";") - "var t,r,a,f,".Length);
+                string initbval = tmp.Substring(tmp.IndexOf(":+")+1, tmp.IndexOf("))") + 3 - tmp.IndexOf(":+")-1);
+                string vallist = tmp.Substring(tmp.IndexOf(var), tmp.IndexOf("a.value") - tmp.IndexOf(var));
+                Microsoft.JScript.Vsa.VsaEngine Engine = Microsoft.JScript.Vsa.VsaEngine.CreateEngine();
+                string script = varline + vallist;
+                object Result = 0;
+                try
+                {
+                    Result = Microsoft.JScript.Eval.JScriptEvaluate(script, Engine);
+                }
+                catch (Exception ex)
+                {
+                    
+                }
+                int aval = int.Parse(Result.ToString(), System.Globalization.CultureInfo.InvariantCulture);
                 
-                int op1 = int.Parse(aval.Substring(0, aval.IndexOf("+")), System.Globalization.CultureInfo.InvariantCulture);
-                int p1 = aval.IndexOf("+") + 1;
-                int p2 = aval.IndexOf("*") - aval.IndexOf("+");
-                int op2 = int.Parse(aval.Substring(aval.IndexOf("+") + 1, aval.IndexOf("*") - aval.IndexOf("+") - 1), System.Globalization.CultureInfo.InvariantCulture);
-                int op3 = int.Parse(aval.Substring(aval.IndexOf("*") + 1), System.Globalization.CultureInfo.InvariantCulture);
-                aval = ((op2 * op3) + op1).ToString();
-                int.Parse(aval, System.Globalization.CultureInfo.InvariantCulture);
+                
                 string jschl_vc = s1.Substring(s1.IndexOf(" name=\"jschl_vc\" value=\""));
                 jschl_vc = jschl_vc.Substring(("name=\"jschl_vc\" value=\"").Length + 1);
                 int len = jschl_vc.IndexOf("\"/>\n");
@@ -431,7 +441,7 @@ namespace JDCAPI
                 {
                     //string content = new WebClient().DownloadString("cdn-cgi/l/chk_jschl?jschl_vc=1bb30f6e73b41c8dd914ccbf64576147&jschl_answer=84");
                     CookieContainer cookies2 = request.CookieContainer;
-                    string req = string.Format(host + "/cdn-cgi/l/chk_jschl?jschl_vc={0}&jschl_answer={1}", jschl_vc, int.Parse(aval, System.Globalization.CultureInfo.InvariantCulture) + 13);
+                    string req = string.Format(host + "/cdn-cgi/l/chk_jschl?jschl_vc={0}&jschl_answer={1}", jschl_vc, aval + 13);
                     request = (HttpWebRequest)HttpWebRequest.Create(req);
                     request.UserAgent = "JDCAPI - " + UserAgent;
                     request.CookieContainer = cookies2;
@@ -509,7 +519,7 @@ namespace JDCAPI
             }
             return true;
         }
-
+        
         /// <summary>
         /// not yet implemented, will not be needed after ping has been added
         /// </summary>
