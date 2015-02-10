@@ -8,9 +8,10 @@ namespace JDCAPI
 {
     public class Invest
     {
-        public decimal i { get; set; }
-        public decimal p { get; set; }
-        public decimal pft { get; set; }
+        public decimal Amount { get; set; }
+        public decimal Percentage { get; set; }
+        public decimal Profit { get; set; }
+        public decimal Offsite { get; set; }
     }
     public class InvestError
     {

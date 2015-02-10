@@ -532,7 +532,7 @@ namespace JDCAPI
                 var.name = "reconnect";
                 var.args = new System.Collections.ArrayList();
                 var.args.Add("Reconnecting");
-                OnJDError(var);
+                OnJDError(var.args[0].ToString());
             }
             Disconnect();
             if (!string.IsNullOrEmpty(sUsername) & !string.IsNullOrEmpty(sPassword))
@@ -684,14 +684,14 @@ namespace JDCAPI
                         {
                             int length = int.Parse(s2.Substring(1, s2.IndexOf('�', 1) - 1));
                             string tmp = s2.Substring(s2.IndexOf('�', 1) + 1, length);
-                            returns.Add(tmp);
+                            returns.Add(tmp.Substring(4));
                             s2 = s2.Substring(s2.IndexOf('�', 1) + length + 1);
                         }
                     }
                 }
                 else if (s2.Substring(0, 4) == "5:::")
                 {
-                    returns.Add(s2);
+                    returns.Add(s2.Substring(4));
                 }
                 else
                 {
@@ -702,7 +702,7 @@ namespace JDCAPI
                 {
                     if (s.Length > 13)
                     {
-                        string tmpstring = s.Substring(13, s.IndexOf("\"", 13) - 13);
+                        string tmpstring = s.Substring(9, s.IndexOf("\"", 9) - 9);
                         if (tmpstring.Contains("pong"))
                         {
                             if (OnPong != null)
@@ -710,7 +710,7 @@ namespace JDCAPI
                                 OnPong();
                             }
                         }
-                        if (tmpstring.Contains("\"result\""))
+                        if (tmpstring.Contains("result"))
                         {
                             ProcessResult(s);
                         }
@@ -744,6 +744,26 @@ namespace JDCAPI
                         {
                             ProcessDetails(s);
                         }
+                        else if (tmpstring.Contains("ga_info") && !logginging)
+                        {
+                            ProcessSetupGa(s);
+                        }
+                        else if (tmpstring.Contains("ga_code_ok") && !logginging)
+                        {
+                            ProcessGaCode(s);
+                        }
+                        else if (tmpstring.Contains("ga_done") && !logginging)
+                        {
+                            if ( onGaDone != null)
+                                onGaDone();
+                        }
+                        else if (tmpstring.Contains("ga_code_done") && !logginging)
+                        {
+                            if (onGaDone != null)
+                                onGaDone();
+                        }
+
+
                         else //for everything that uses the various class as output
                         {
                             try
@@ -751,25 +771,47 @@ namespace JDCAPI
                                 Various tmp = ProcessVarious(s);
                                 switch (tmp.name)
                                 {
-                                    case "invest": if (onInvest != null && !logginging) onInvest(tmp); break;
-                                    case "invest_error": if (OnInvestError != null && !logginging) OnInvestError(tmp); break;
-                                    case "divest_error": if (OnDivestError != null && !logginging) OnDivestError(tmp); break;
-                                    case "wdaddr": if (OnWDAddress != null && !logginging) OnWDAddress(tmp); break;
-                                    case "balance": if (OnBalance != null && !logginging) OnBalance(tmp); break;
-                                    case "shash": if (OnSecretHash != null && !logginging) OnSecretHash(tmp); break;
-                                    case "seed": if (OnClientSeed != null && !logginging) OnClientSeed(tmp); break;
-                                    case "bad_seed": if (OnBadClientSeed != null && !logginging) OnBadClientSeed(tmp); break;
-                                    case "nonce": if (OnNonce != null && !logginging) OnNonce(tmp); break;
-                                    case "jderror": if (OnJDError != null && !logginging) OnJDError(tmp); break;
-                                    case "jdmsg": if (OnJDMessage != null && !logginging) OnJDMessage(tmp); break;
-                                    case "form_error": if (OnFormError != null && !logginging) OnFormError(tmp); break;
-                                    case "login_error": if (OnLoginError != null && !logginging) OnLoginError(tmp); break;
-                                    case "wins": if (OnWins != null && !logginging) OnWins(tmp); break;
-                                    case "losses": if (OnLossess != null && !logginging) OnLossess(tmp); break;
+                                    case "invest": if (onInvest != null && !logginging) onInvest(new Invest 
+                                    { 
+                                        Amount=decimal.Parse(tmp.args[0].ToString()), 
+                                        Percentage =decimal.Parse(tmp.args[1].ToString()),
+                                        Profit = decimal.Parse(tmp.args[2].ToString()),
+                                        Offsite = decimal.Parse(tmp.args[3].ToString()),
+
+                                    }); break;
+                                    case "invest_error": if (OnInvestError != null && !logginging) OnInvestError(tmp.args[0].ToString()); break;
+                                    case "divest_error": if (OnDivestError != null && !logginging) OnDivestError(tmp.args[0].ToString()); break;
+                                    case "wdaddr": if (OnWDAddress != null && !logginging) OnWDAddress(tmp.args[0].ToString()); break;
+                                    case "balance": if (OnBalance != null && !logginging) OnBalance(decimal.Parse(tmp.args[0].ToString())); break;
+                                    case "shash": this.shash = tmp.args[0].ToString(); if (OnSecretHash != null && !logginging) OnSecretHash(tmp.args[0].ToString()); break;
+                                    case "seed": this.seed = tmp.args[0].ToString(); if (OnClientSeed != null && !logginging) OnClientSeed(tmp.args[0].ToString()); break;
+                                    case "bad_seed": if (OnBadClientSeed != null && !logginging) OnBadClientSeed(tmp.args[0].ToString()); break;
+                                    case "nonce": if (OnNonce != null && !logginging) OnNonce(int.Parse(tmp.args[0].ToString())); break;
+                                    case "jderror": if (OnJDError != null && !logginging) OnJDError(tmp.args[0].ToString()); break;
+                                    case "jdmsg": if (OnJDMessage != null && !logginging) OnJDMessage(tmp.args[0].ToString()); break;
+                                    case "form_error": if (OnFormError != null && !logginging) OnFormError(tmp.args[0].ToString()); break;
+                                    case "login_error": if (OnLoginError != null && !logginging) OnLoginError(tmp.args[0].ToString()); break;
+                                    case "wins": if (OnWins != null && !logginging) OnWins(long.Parse(tmp.args[0].ToString())); break;
+                                    case "losses": if (OnLossess != null && !logginging) OnLossess(long.Parse(tmp.args[0].ToString())); break;
                                     //case "details": if (OnDetails != null && !logginging) OnDetails(tmp); break;
-                                    case "max_profit": if (OnMaxProfit != null && !logginging) OnMaxProfit(tmp); break;
-                                    case "new_client_seed": if (OnNewClientSeed != null && !logginging) OnNewClientSeed(tmp); break;
-                                    case "address": if (OnAddress != null && !logginging) OnAddress(tmp); break;
+                                    case "max_profit": if (OnMaxProfit != null && !logginging) OnMaxProfit(decimal.Parse(tmp.args[0].ToString())); break;
+                                    case "new_client_seed": if (OnNewClientSeed != null && !logginging) OnNewClientSeed(
+                                        new SeedInfo 
+                                        {
+                                            OldServerSeed = tmp.args[0].ToString(),
+                                            OldServerHash = tmp.args[0].ToString(),
+                                            OldClientSeed = tmp.args[0].ToString(),
+                                            TotalRolls = tmp.args[0].ToString(),
+                                            NewServerHash = tmp.args[0].ToString()
+                                        }
+                                        ); break;
+                                    case "address": if (OnAddress != null && !logginging) OnAddress(new Address 
+                                    {
+                                        DepositAddress = tmp.args[0].ToString(),
+                                        ImageHTML= tmp.args[0].ToString(),
+                                        Note = tmp.args[0].ToString(),
+                                    }
+                                    ); break;
                                     case "pong": if (OnPong != null && !logginging) OnPong(); break;
                                     case "reload": Reconnect(); break;
                                 }
@@ -782,6 +824,31 @@ namespace JDCAPI
                     }
                 }
             }
+        }
+
+        private void ProcessGaCode(string JsonString)
+        {
+            int start = JsonString.IndexOf("[") + 1;
+            int length = JsonString.IndexOf("]") - start;
+            start = JsonString.IndexOf('[') + 1;
+            length = JsonString.LastIndexOf(']') - start + 1;
+            JsonString = JsonString.Substring(start, length);
+            GoogleAuthSettings tmp = json.JsonDeserialize<GoogleAuthSettings>(JsonString);
+            if (OnGaCodeOk != null)
+                OnGaCodeOk(tmp);
+            
+        }
+
+        private void ProcessSetupGa(string JsonString)
+        {
+            int start = JsonString.IndexOf("[") + 1;
+            int length = JsonString.IndexOf("]") - start;
+            start = JsonString.IndexOf('[') + 1;
+            length = JsonString.LastIndexOf(']') - start + 1;
+            JsonString = JsonString.Substring(start, length);
+            GoogleAuthSettings tmp = json.JsonDeserialize<GoogleAuthSettings>(JsonString);
+            if (OnGaInfo != null)
+                OnGaInfo(tmp);
         }
 
         private void ProcessDetails(string tmpstring)
@@ -889,7 +956,7 @@ namespace JDCAPI
                 }
                 
                 if (OnResult != null)
-                    OnResult(tmp, (tmp.uid == uid) ? true : false);
+                    OnResult(tmp, (tmp.uid == uid));
 
                 Bet tmp2 = new Bet();
                 tmp2.bet = tmp.bet;
@@ -905,7 +972,7 @@ namespace JDCAPI
                 tmp2.this_profit = tmp.this_profit;
                 tmp2.uid = tmp.uid;
                 if (OnBet != null && !logginging)
-                    OnBet(tmp2, (tmp2.uid == uid) ? true : false);
+                    OnBet(tmp2, (tmp2.uid == uid) );
                 
 
             }
@@ -1035,9 +1102,16 @@ namespace JDCAPI
 
         private Various ProcessVarious(string JsonString)
         {
+            try
+            {
+                int length = JsonString.IndexOf("}");
+                JsonString = JsonString.Remove(length + 1);
+                
+            }
+            catch
+            {
 
-            int length = JsonString.IndexOf("}");
-            JsonString = JsonString.Remove(length + 1);
+            }
             JsonString = JsonString.Replace(((char)011).ToString(), "");
             Various tmp = json.JsonDeserialize<Various>(JsonString);
             return tmp;
@@ -1092,11 +1166,35 @@ namespace JDCAPI
             tDivest.Start(string.Format("5:::{{\"name\":\"divest\",\"args\":[\"{0}\",\"{1}\",\"{2}\"]}}", csrf, Amount, Code));
         }
 
-        public bool SetupGaCode(string Code)
+        public void SetupAccount(string Username, string Password)
         {
-            return false;
+            Thread tSetupAccount = new Thread(new ParameterizedThreadStart(Emit));
+            tSetupAccount.Start(string.Format("5:::{{\"name\":\"setup_account\",\"args\":[\"{0}\",\"{1}\",\"{2}\"]}}", csrf, Username, Password));
         }
 
+        public void SetupGaCode(string Code)
+        {
+            Thread tSetupGaCode = new Thread(new ParameterizedThreadStart(Emit));
+            tSetupGaCode.Start(string.Format("5:::{{\"name\":\"setup_ga_code\",\"args\":[\"{0}\",\"{1}\"]}}", csrf, Code));
+        }
+
+        public void EditGa()
+        {
+            Thread tSetupGaCode = new Thread(new ParameterizedThreadStart(Emit));
+            tSetupGaCode.Start(string.Format("5:::{{\"name\":\"edit_ga\",\"args\":[\"{0}\"}}", csrf));
+        }
+
+        public void DoneEditGa(string Code, GAFlags Flags)
+        {
+            Thread tSetupGaCode = new Thread(new ParameterizedThreadStart(Emit));
+            tSetupGaCode.Start(string.Format("5:::{{\"name\":\"done_edit_ga\",\"args\":[\"{0}\",\"{1}\",\"{2}\"]}}", csrf, Code, json.JsonSerializer<GAFlags>(Flags)));
+        }
+
+        public void DisableGa(string Code)
+        {
+            Thread tSetupGaCode = new Thread(new ParameterizedThreadStart(Emit));
+            tSetupGaCode.Start(string.Format("5:::{{\"name\":\"disable_ga\",\"args\":[\"{0}\",\"{1}\"]}}", csrf, Code));
+        }
         private string RandomSeed()
         {
             string tmpseed = "";
@@ -1132,11 +1230,6 @@ namespace JDCAPI
             tPassword.Start(string.Format("5:::{{\"name\":\"change_password\",\"args\":[\"{0}\",\"{1}\",\"{2}\"]}}",csrf, CurrentPassword, Password));
         }
 
-        public void SetupAccount(string Username, string Password)
-        {
-            Thread tAccount = new Thread(new ParameterizedThreadStart(Emit));
-            tAccount.Start(string.Format("5:::{{\"name\":\"setup_account\",\"args\":[\"{0}\",\"{1}\",\"{2}\"]}}",csrf, Username, Password));
-        }
         
         public void Chat(string Message)
         {
@@ -1154,6 +1247,38 @@ namespace JDCAPI
         {
             Thread tRoll = new Thread(new ParameterizedThreadStart(Emit));
             tRoll.Start(string.Format("5:::{{\"name\":\"ping\",\"args\":[\"{0}\",\"ping\"]}}", csrf));
+        }
+
+        public void SetSettings(SettingsType_Numeric Type, decimal Value)
+        {
+            string Message = "";
+            switch (Type)
+            {
+                case SettingsType_Numeric.Chat_Minimum_Change: Message = "chat_min_change"; break;
+                case SettingsType_Numeric.Chat_Minimum_Risk: Message = "chat_min_risk"; break;
+                case SettingsType_Numeric.Chat_Watch_Player: Message = "chat_watch_player"; break;
+                case SettingsType_Numeric.Minimum_Change: Message = "min_change"; break;
+                case SettingsType_Numeric.Minimum_Risk: Message = "min_risk"; break;
+                case SettingsType_Numeric.Roll_Delay: Message = "roll_delay"; break;
+                case SettingsType_Numeric.Watch_Player: Message = "watch_player"; break;
+            }
+            Thread tSettings = new Thread(new ParameterizedThreadStart(Emit));
+            tSettings.Start(string.Format("5:::{{\"name\":\"settings\",\"args\":[\"{0}\",\"float\",\"{1}\",\"{2}\"]}}", csrf, Message, Value));
+        }
+        public void SetSettings( SettingsType_Boolean Type, bool Value)
+        {
+            string Message = "";
+            switch (Type)
+            {
+                case SettingsType_Boolean.Alarm: Message = "alarm"; break;
+                case SettingsType_Boolean.AllBetsMe: Message = "allbetsme"; break;
+                case SettingsType_Boolean.AutoInvest: Message = "autoinvest"; break;
+                case SettingsType_Boolean.Chatstake: Message = "chatstake"; break;
+                case SettingsType_Boolean.MuteChat: Message = "mutechat"; break;
+                case SettingsType_Boolean.Shortcuts: Message = "shortcuts"; break;
+            }
+            Thread tSettings = new Thread(new ParameterizedThreadStart(Emit));
+            tSettings.Start(string.Format("5:::{{\"name\":\"settings\",\"args\":[\"{0}\",\"bool\",\"{1}\",\"{2}\"]}}", csrf, Message, Value?"1":"0"));
         }
         int emitlevel = 0;
         private void Emit(object Message)
@@ -1212,7 +1337,7 @@ namespace JDCAPI
         public event dOnBet OnBet;
 
         //triggers on successfull invest
-        public delegate void dInvest(Various InvestResult);
+        public delegate void dInvest(Invest InvestResult);
         public event dInvest onInvest;
 
         //OnVersion when site is updated, this forces a reload
@@ -1231,82 +1356,79 @@ namespace JDCAPI
         //on Invest_Box open fancybox for investing and divesting //not to be included
 
         //on invest_error happens when invest failed, for whatever reason
-        public delegate void dInvestError(Various InvestError);
+        public delegate void dInvestError(string InvestError);
         public event dInvestError OnInvestError;
 
         //on divest_error happens when divest failed, for whatever reason
-        public delegate void dDivestError(Various DivestError);
+        public delegate void dDivestError(string DivestError);
         public event dDivestError OnDivestError;
         
         //various Google Auth stuff, skipping for now, will implement when i have figured out what each does
 
         //on wdaddr - gets the new withdraw address after it has been set
-        public delegate void dWDAddress(Various WDaddress);
+        public delegate void dWDAddress(string WDaddress);
         public event dWDAddress OnWDAddress;
 
         //on balance - gets new balance after events like withdraw, invest, divest. 
         //Will be called when bet result is received as well
-        public delegate void dBalance (Various Balance);
+        public delegate void dBalance (decimal Balance);
         public event dBalance OnBalance;
 
-        //on details - no idea what this is used for, i assume its for fancybox messages etc, might or might not implement
-        public delegate void dDetails(Various Details);
-        public event dDetails OnDetails;
 
         //max profit - Happens when max profit changes due to large bets, investing or divesting
-        public delegate void dMaxProfit(Various MaxProfit);
+        public delegate void dMaxProfit(decimal MaxProfit);
         public event dMaxProfit OnMaxProfit;
 
         //on shash - happens when server seed is changed with randomize, returns new server seed hash
-        public delegate void dShash(Various secretHash);
+        public delegate void dShash(string secretHash);
         public event dShash OnSecretHash;
 
 
         //on seed - happens when client seed is successfully changed
-        public delegate void dSeed(Various Seed);
+        public delegate void dSeed(string Seed);
         public event dSeed OnClientSeed;
 
         //on bad_seed - happens when client seed is NOT successfully changed
-        public delegate void dBadSeed(Various Message);
+        public delegate void dBadSeed(string Message);
         public event dBadSeed OnBadClientSeed;
 
         //on nonce - afaik this happens when ever a bet is made, returns the new nonce
-        public delegate void dNonce(Various Nonce);
+        public delegate void dNonce(int Nonce);
         public event dNonce OnNonce;
 
         //on address - called when a user requests a deposit address, returns the address,
         //i think the url to a qrcode image and a confs param, no idea what it is
-        public delegate void dAddress(Various Address);
+        public delegate void dAddress(Address Address);
         public event dAddress OnAddress;
 
         //on new_client_seed - happens after a randomize, returns the old server seed, old server hash, old client 
         //seed, old nonce and new secret hash
-        public delegate void dNewClientSeed(Various SeedInfo);
+        public delegate void dNewClientSeed(SeedInfo SeedInfo);
         public event dNewClientSeed OnNewClientSeed;
 
         //on jderror - important shit this, returns most errors you can get while doing stuff
-        public delegate void dJDError(Various Error);
+        public delegate void dJDError(string Error);
         public event dJDError OnJDError;
 
         //on jd message, called for messages, not sure wich messages, but messages
-        public delegate void dJDMessage(Various Message);
+        public delegate void dJDMessage(string Message);
         public event dJDMessage OnJDMessage;
 
         //on form_error - not really sure when this is called
-        public delegate void dFormError(Various Error);
+        public delegate void dFormError(string Error);
         public event dFormError OnFormError;
 
         //on login Error triggers when you give incorrect login details, i assume? 
-        public delegate void dLoginError(Various Error);
+        public delegate void dLoginError(string Error);
         public event dLoginError OnLoginError;
 
         //on wins - is called with balance after a bet, only notifies you of how many winning bets YOU made
         //doesn't include any info on balance or profit or such stuff
-        public delegate void dWins(Various Wins);
+        public delegate void dWins(long Wins);
         public event dWins OnWins;
 
         //on lossess - same as on wins, just for lossess
-        public delegate void dLossess(Various Lossess);
+        public delegate void dLossess(long Lossess);
         public event dLossess OnLossess;
 
         //on pong, doesn't seem to really mean anything, only goes into console log. might of might not implement
@@ -1323,6 +1445,18 @@ namespace JDCAPI
         public delegate void dLoginEnd(bool Connected);
         public event dLoginEnd LoginEnd;
 
+
+        //on ga code ok
+        public delegate void dGaCodeOK(GoogleAuthSettings GASettings);
+        public event dGaCodeOK OnGaCodeOk;
+        
+        //on ga_info
+        public delegate void dGaInfo(GoogleAuthSettings Setup);
+        public event dGaInfo OnGaInfo;
+
+        //on ga code ok
+        public delegate void dGaDone();
+        public event dGaDone onGaDone;
         #endregion
 
         //used for logging and debugging stuff
