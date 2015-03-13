@@ -12,6 +12,7 @@ namespace JDCAPI
 {
     public class jdInstance
     {
+        WebProxy Proxy;
         HttpWebRequest request;
         string conid = "";
         string id = "";
@@ -108,9 +109,12 @@ namespace JDCAPI
         public decimal Percent { get; private set; }
 
         /// <summary>
-        /// 
+        /// User profit
         /// </summary>
-        public decimal Profit { get; private set; }
+        private decimal _Profit = 0;
+        public decimal Profit { get { return _Profit - Offset; } }
+
+        public decimal Offset { get; private set; }
 
         /// <summary>
         /// Client seed
@@ -185,6 +189,49 @@ namespace JDCAPI
         {
             //AvailableBets = new List<JDCAPI.Bet>();
             //ChatMessages = new List<Chat>();
+        }
+
+        /// <summary>
+        /// Set a proxy for the Just-Dice connection
+        /// </summary>
+        /// <param name="ProxyAddress">Host or IP of the proxy server</param>
+        public void SetProxy(string ProxyAddress)
+        {
+            Proxy = new WebProxy(ProxyAddress);
+        }
+
+        /// <summary>
+        /// Set a proxy for the Just-Dice connection
+        /// </summary>
+        /// <param name="ProxyAddress">Host or IP of the proxy server</param>
+        /// <param name="Port">Port for the proxy server</param>
+        public void SetProxy(string ProxyAddress, int Port)
+        {
+            Proxy = new WebProxy(ProxyAddress, Port);
+        }
+
+        /// <summary>
+        /// Set an authenticated proxy for the Just-Dice connection
+        /// </summary>
+        /// <param name="ProxyAddress">Host or IP of the proxy server</param>
+        /// <param name="Username">Proxy Username</param>
+        /// <param name="Password">Proxy Password</param>
+        public void SetProxy(string ProxyAddress, string Username, string Password)
+        {
+            Proxy = new WebProxy(ProxyAddress);
+            Proxy.Credentials = new NetworkCredential(Username, Password);
+        }
+        /// <summary>
+        /// Set an authenticated proxy for the Just-Dice connection
+        /// </summary>
+        /// <param name="ProxyAddress">Host or IP of the proxy server</param>
+        /// <param name="Port">Port for the proxy server</param>
+        /// <param name="Username">Proxy Username</param>
+        /// <param name="Password">Proxy Password</param>
+        public void SetProxy(string ProxyAddress, int Port, string Username, string Password)
+        {
+            Proxy = new WebProxy(ProxyAddress, Port);
+            Proxy.Credentials = new NetworkCredential(Username, Password);
         }
 
         /// <summary>
@@ -315,6 +362,8 @@ namespace JDCAPI
             sPassword = Password;
             string Message = string.Format("username={0}&password={1}&code={2}", Username, Password, GACode);            
             var tmprequest = (HttpWebRequest)HttpWebRequest.Create(host);
+            if (Proxy != null)
+                tmprequest.Proxy = Proxy;
             tmprequest.ContentType = "application/x-www-form-urlencoded";
             tmprequest.ContentLength = Message.Length;
             tmprequest.Referer = host;
@@ -365,6 +414,8 @@ namespace JDCAPI
         private void getxhrval()
         {
             var getxhrval = (HttpWebRequest)HttpWebRequest.Create(host+"/socket.io/1/" + "?t=" + CurrentDate());
+            if (Proxy != null)
+                getxhrval.Proxy = Proxy;
             getxhrval.Referer = host;
             getxhrval.UserAgent = "JDCAPI - " + UserAgent;
             getxhrval.CookieContainer = request.CookieContainer;
@@ -393,6 +444,8 @@ namespace JDCAPI
         {
 
             request = (HttpWebRequest)HttpWebRequest.Create(host);
+            if (Proxy != null)
+                request.Proxy = Proxy;
             var cookies = new CookieContainer();
             request.CookieContainer = cookies;
             request.UserAgent = "JDCAPI - " + UserAgent;
@@ -443,6 +496,8 @@ namespace JDCAPI
                     CookieContainer cookies2 = request.CookieContainer;
                     string req = string.Format(host + "/cdn-cgi/l/chk_jschl?jschl_vc={0}&jschl_answer={1}", jschl_vc, aval + 13);
                     request = (HttpWebRequest)HttpWebRequest.Create(req);
+                    if (Proxy != null)
+                        request.Proxy = Proxy;
                     request.UserAgent = "JDCAPI - " + UserAgent;
                     request.CookieContainer = cookies2;
                     Response = (HttpWebResponse)request.GetResponse();
@@ -553,6 +608,8 @@ namespace JDCAPI
             active = false;
             //Clear all of the cookies
             request = (HttpWebRequest)HttpWebRequest.Create(host);
+            if (Proxy != null)
+                request.Proxy = Proxy;
             hash = "";
             conid = "";
             id = "";
@@ -565,7 +622,7 @@ namespace JDCAPI
         /// <returns>string</returns>
         public static string CurrentDate()
         {
-            TimeSpan dt = DateTime.UtcNow - DateTime.Parse("1970/01/01 00:00:00");
+            TimeSpan dt = DateTime.UtcNow - DateTime.Parse("1970/01/01 00:00:00", System.Globalization.CultureInfo.InvariantCulture);
             double mili = dt.TotalMilliseconds;
             return ((long)mili).ToString();
             
@@ -578,7 +635,7 @@ namespace JDCAPI
         /// <returns></returns>
         public static DateTime ToDateTime(string milliseconds)
         {
-            DateTime tmpDate = DateTime.Parse("1970/01/01 00:00:00");
+            DateTime tmpDate = DateTime.Parse("1970/01/01 00:00:00", System.Globalization.CultureInfo.InvariantCulture);
             tmpDate = tmpDate.AddMilliseconds(long.Parse(milliseconds));
             tmpDate += (DateTime.Now - DateTime.UtcNow);
             return tmpDate;   
@@ -586,7 +643,7 @@ namespace JDCAPI
 
         public static DateTime ToDateTime2(string milliseconds)
         {
-            DateTime tmpDate = DateTime.Parse("1970/01/01 00:00:00");
+            DateTime tmpDate = DateTime.Parse("1970/01/01 00:00:00", System.Globalization.CultureInfo.InvariantCulture);
             tmpDate = tmpDate.AddSeconds(long.Parse(milliseconds));
             tmpDate += (DateTime.Now - DateTime.UtcNow);
             return tmpDate;
@@ -620,6 +677,8 @@ namespace JDCAPI
         private void GetInfo()
         {
             var MaintainConnectoin = (HttpWebRequest)HttpWebRequest.Create(host+"/socket.io/1/xhr-polling/" + xhrval + "?t=" + CurrentDate());
+            if (Proxy != null)
+                MaintainConnectoin.Proxy = Proxy;
             MaintainConnectoin.UserAgent = "JDCAPI - " + UserAgent;
             MaintainConnectoin.CookieContainer = request.CookieContainer;
             MaintainConnectoin.Referer = host;
@@ -952,7 +1011,7 @@ namespace JDCAPI
                 }
                 else
                 {
-                    Profit = decimal.Parse(tmp.profit, System.Globalization.CultureInfo.InvariantCulture);
+                    _Profit = decimal.Parse(tmp.profit, System.Globalization.CultureInfo.InvariantCulture);
                 }
                 
                 if (OnResult != null)
@@ -1066,7 +1125,7 @@ namespace JDCAPI
             JsonString = JsonString.Substring(start, length);
             init Initial = json.JsonDeserialize<init>(JsonString);
             Balance = double.Parse(Initial.balance, System.Globalization.CultureInfo.InvariantCulture);
-            Bankroll = Double.Parse(Initial.bankroll, System.Globalization.CultureInfo.InvariantCulture);
+            Bankroll = double.Parse(Initial.bankroll, System.Globalization.CultureInfo.InvariantCulture);
             Bets = Initial.bets;
             Chance = Initial.chance;
             csrf = Initial.csrf;
@@ -1075,9 +1134,11 @@ namespace JDCAPI
             Ignores = Initial.ignores;
             Investment = (decimal)Initial.investment;
             Invest_pft = Initial.invest_pft;
-            long loss = 0;
-            long.TryParse(Initial.lossess, out loss);
-            Losses = loss;
+
+            Losses = long.Parse(Initial.losses, System.Globalization.CultureInfo.InvariantCulture);
+            
+            Wins  = long.Parse(Initial.wins, System.Globalization.CultureInfo.InvariantCulture);
+                        
             Luck = Initial.luck;
             MaxProfit = Initial.max_profit;
             Name = Initial.name;
@@ -1089,6 +1150,8 @@ namespace JDCAPI
             this.Stats = Initial.stats;
             WDAddress = Initial.wdaddr;
             uid = Initial.uid;
+            _Profit = decimal.Parse(Initial.profit, System.Globalization.CultureInfo.InvariantCulture);
+            Wagered = decimal.Parse(Initial.wagered, System.Globalization.CultureInfo.InvariantCulture);
             for (int i = 0; i < Initial.chat.Count-1; i += 2)
             {
                 Chat tmpChat = json.JsonDeserialize<initchat>(Initial.chat[i].ToString()).ConvertToChat(Initial.chat[i + 1].ToString());
@@ -1287,6 +1350,8 @@ namespace JDCAPI
             try
             {
                 var hwrEmit = (HttpWebRequest)HttpWebRequest.Create(host + "/socket.io/1/xhr-polling/" + xhrval + "?t=" + CurrentDate());
+                if (Proxy != null)
+                    hwrEmit.Proxy = Proxy;
                 if (logging)
                     writelog(Message as string);
                 hwrEmit.CookieContainer = request.CookieContainer;

@@ -20,7 +20,7 @@ namespace JDCAPI
         public string[] ignores { get; set; }
         public double investment { get; set; }
         public double invest_pft { get; set; }
-        public string lossess { get; set; }
+        public string losses { get; set; }
         public string luck { get; set; }
         public Double max_profit { get; set; }
         public string name { get; set; }
