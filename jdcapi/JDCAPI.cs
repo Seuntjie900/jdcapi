@@ -821,6 +821,11 @@ namespace JDCAPI
                             if (onGaDone != null)
                                 onGaDone();
                         }
+                        else if (tmpstring.Contains("staked") && !logginging)
+                        {
+                            ProcessStake(s);
+                        }
+
 
 
                         else //for everything that uses the various class as output
@@ -1037,6 +1042,17 @@ namespace JDCAPI
             }
         }
 
+        private void ProcessStake(string JsonString)
+        {
+            int start = JsonString.IndexOf("{");
+            int length = JsonString.LastIndexOf("}") - start + 1;
+            JsonString = JsonString.Substring(start, length);
+            JsonString = JsonString.Replace(((char)011).ToString(), "");
+            StakeBase tmp = json.JsonDeserialize<StakeBase>(JsonString);
+            if (OnStake != null)
+                OnStake(tmp.args[0]);
+        }
+
         private void ProcessChat(string JsonString)
         {
             int start = JsonString.IndexOf("{");
@@ -1051,9 +1067,27 @@ namespace JDCAPI
              }
              else if (tmp.args.Length == 1)
              {
+                 if (tmp.args[0].StartsWith("INFO: you received a"))
+                 {
+                     ProcessTip(tmp.args[0]);
+                 }
                  if (OnChatInfo != null && !logginging)
                      OnChatInfo(tmp.args[0]);
              }
+        }
+
+        private void ProcessTip(string Message)
+        {
+            ReceivedTip tmp = new ReceivedTip();
+            Message = Message.Replace("INFO: you received a ", "");
+            tmp.Amount = double.Parse(Message.Substring(0, Message.IndexOf("CLAM" )- 1));
+            Message = Message.Substring(tmp.Amount.ToString().Length+ " CLAM tip from (".Length);
+            tmp.FromID = int.Parse(Message.Substring(0, Message.IndexOf(")")));
+            tmp.FromUser = Message.Substring(Message.IndexOf(" ") + 1);
+            if (OnTipReceived != null)
+            {
+                OnTipReceived(tmp);
+            }
         }
 
         private void ProcessSetHash(string JsonString)
@@ -1397,6 +1431,14 @@ namespace JDCAPI
         //non message chat event
         public delegate void dOnChatInfo(string Message);
         public event dOnChatInfo OnChatInfo;
+
+        //on Receiving a Tip
+        public delegate void dOnTipReceived(ReceivedTip Tip);
+        public event dOnTipReceived OnTipReceived;
+
+        //on staking clam
+        public delegate void dOnStake(Stake Staked);
+        public event dOnStake OnStake;
 
         //On result, can be either own bet or a random bet
         public delegate void dOnresult(Result result, bool IsMine);
