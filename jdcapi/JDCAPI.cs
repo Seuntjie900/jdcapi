@@ -1060,7 +1060,7 @@ namespace JDCAPI
              JsonString = JsonString.Substring(start, length);
              JsonString = JsonString.Replace(((char)011).ToString(), "");
              baseChat tmp = json.JsonDeserialize<baseChat>(JsonString);
-             if (tmp.args.Length > 1)
+             if (!tmp.args[0].StartsWith("INFO:"))
              {
                  if (OnChat != null && !logginging)
                      OnChat(tmp.ConvertToChat());
