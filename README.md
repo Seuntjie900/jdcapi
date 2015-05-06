@@ -4,7 +4,14 @@ jdcapi
 Juts-Dice Custom Application Programming Interface
 
 
-This is an API to use with http://just-dice.com and http://doge-dice.com
+This is an API to use with http://just-dice.com
+
+donations:
+
+bitcoin: 13tCUHA7TDeHMuRAta1wJQ7UchDep3uT2z
+
+clam: x8NNzdwgNzuCqhQuPkmHvGHNTzonhvrqZd
+
 
 It is currently only available in .net, but it will be ported to mono soon, so it can be used on linux and mac as well as windows.
 
