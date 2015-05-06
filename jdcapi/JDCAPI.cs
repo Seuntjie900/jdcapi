@@ -1044,8 +1044,16 @@ namespace JDCAPI
              JsonString = JsonString.Substring(start, length);
              JsonString = JsonString.Replace(((char)011).ToString(), "");
              baseChat tmp = json.JsonDeserialize<baseChat>(JsonString);
-             if (OnChat != null && !logginging)
-                OnChat(tmp.ConvertToChat());
+             if (tmp.args.Length > 1)
+             {
+                 if (OnChat != null && !logginging)
+                     OnChat(tmp.ConvertToChat());
+             }
+             else if (tmp.args.Length == 1)
+             {
+                 if (OnChatInfo != null && !logginging)
+                     OnChatInfo(tmp.args[0]);
+             }
         }
 
         private void ProcessSetHash(string JsonString)
@@ -1386,6 +1394,10 @@ namespace JDCAPI
         #endregion
 
         #region Events
+        //non message chat event
+        public delegate void dOnChatInfo(string Message);
+        public event dOnChatInfo OnChatInfo;
+
         //On result, can be either own bet or a random bet
         public delegate void dOnresult(Result result, bool IsMine);
         public event dOnresult OnResult;
