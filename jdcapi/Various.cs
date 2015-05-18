@@ -33,11 +33,18 @@ namespace JDCAPI
     {
         Minimum_Risk, 
         Minimum_Change, 
-        Watch_Player, 
         Chat_Minimum_Risk, 
         Chat_Minimum_Change, 
-        Chat_Watch_Player, 
-        Roll_Delay
+        Roll_Delay,
+        Max_Double
+    }
+
+    public enum SettingsType_String
+    {
+        Watch_Player,
+        Chat_Watch_Player,
+        Email,
+        Emergency_Address
     }
 
     public enum SettingsType_Boolean
@@ -48,6 +55,13 @@ namespace JDCAPI
         MuteChat,
         Shortcuts,
         Chatstake,
-        Alarm
+        Alarm,
+        max_bet
+    }
+
+    public class ReceivedObject
+    {
+        public string name { get; set; }
+        public object[] args { get; set; }
     }
 }

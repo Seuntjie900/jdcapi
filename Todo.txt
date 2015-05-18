@@ -1,0 +1,33 @@
+JDCAPI - 
+  -----Test GA
+  -----invest variables
+  -----reset profit
+  -----old bets - seperate
+  -----hash login - requires password
+  -----check number formats everywhere for international format
+  -----set client seed
+  -----change local settings on update
+Desktop client
+  -----GA
+  better chat
+  easy buttons
+  shortcuts
+  max bet
+  -----offset
+  -----invest amounts
+  -----reset profit
+  --alarm
+  -----fair tab
+  -----bet history
+  -----logging in - surpress settings emits
+  -----create account
+  -----change password
+  formatting
+  international number formats
+  -----bet views
+  fix settings path
+  
+betting bot
+  fix
+  
+add mutlti-instance example

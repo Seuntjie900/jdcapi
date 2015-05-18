@@ -7,10 +7,9 @@ using System.Web;
 using System.IO;
 using System.Threading;
 using System.Net;
-using Microsoft.JScript;
 namespace JDCAPI
 {
-    public class jdInstance
+    public class jdInstance: IDisposable
     {
         WebProxy Proxy;
         HttpWebRequest request;
@@ -29,7 +28,11 @@ namespace JDCAPI
         string sUsername = "";
         string sPassword = "";
         string sGAcode = "";
-        
+
+        /// <summary>
+        /// Google Auth settings for connected account
+        /// </summary>
+        public GoogleAuthSettings ga { get; set; }
 
         /// <summary>
         /// Indicates whether jdcapi is successfully connected to just dice or not
@@ -76,7 +79,7 @@ namespace JDCAPI
         /// 
         /// </summary>
         public decimal Investment { get; set; }
-        public double Invest_pft { get; private set; }
+        public decimal Invest_pft { get; private set; }
 
         /// <summary>
         /// total number of losed bets for connected account
@@ -107,6 +110,16 @@ namespace JDCAPI
         /// invested percentage
         /// </summary>
         public decimal Percent { get; private set; }
+
+        /// <summary>
+        /// offsite invested amount
+        /// </summary>
+        public decimal Offsite { get; private set; }
+
+        /// <summary>
+        /// Profit from staking
+        /// </summary>
+        public decimal stake_profit { get; private set; }
 
         /// <summary>
         /// User profit
@@ -281,8 +294,17 @@ namespace JDCAPI
         /// <returns>if connected successfully, returns true</returns>
         public bool Connect(bool DogeDice)
         {
-            
-            host = "https://"+((DogeDice)?"doge":"just")+"-dice.com";            
+            hash = "";
+            return IntConnect(DogeDice);
+
+        }
+
+        private bool IntConnect(bool DogeDice)
+        {
+            xhrval = "";
+
+            host = "https://" + ((DogeDice) ? "doge" : "just") + "-dice.com";
+            request = (HttpWebRequest)HttpWebRequest.Create(host);
             //Initial request for getting headers and cookies from site
             bool _Connected = getInitalHeaders();
             getxhrval();
@@ -292,7 +314,7 @@ namespace JDCAPI
             {
                 if (counter++ > 4)
                     _Connected = false;
-                 GetInfo();
+                GetInfo();
             }
             if (_Connected)
             {
@@ -324,7 +346,6 @@ namespace JDCAPI
                 Connected = false;
                 return Connected;
             }
-
         }
 
 
@@ -338,7 +359,7 @@ namespace JDCAPI
         public bool Connect(bool DogeDice, string secretHash)
         {
             privatehash = secretHash;
-            return Connect(DogeDice);
+            return IntConnect(DogeDice);
         }
 
         /// <summary>
@@ -354,12 +375,16 @@ namespace JDCAPI
         /// <returns></returns>
         public bool Connect(bool DogeDice, string Username, string Password, string GACode)
         {
+            xhrval = "";
+            
             
             privatehash = (!DogeDice) ? "0f3aa87b64103349a9cabcccbb312e606e9013c3eee8f364b9ee4e91ad2c67d3" : "0fc4126d7045e16c05d18b6fda82324c2f987ac7f51317f317d6488680a37668";
             host = "https://" + ((DogeDice) ? "doge" : "just") + "-dice.com";
-            bool _Connected = getInitalHeaders();
+            request = (HttpWebRequest)HttpWebRequest.Create(host);
             sUsername = Username;
             sPassword = Password;
+            bool _Connected = getInitalHeaders();
+            
             string Message = string.Format("username={0}&password={1}&code={2}", Username, Password, GACode);            
             var tmprequest = (HttpWebRequest)HttpWebRequest.Create(host);
             if (Proxy != null)
@@ -376,7 +401,14 @@ namespace JDCAPI
                 writer.Write(writestring);
             }
             HttpWebResponse EmitResponse = (HttpWebResponse)tmprequest.GetResponse();
-            string sEmitResponse = new StreamReader(EmitResponse.GetResponseStream()).ReadToEnd();            
+            string sEmitResponse = new StreamReader(EmitResponse.GetResponseStream()).ReadToEnd();
+
+            if (OnLoginError != null && sEmitResponse.StartsWith("<!DOCTYPE html><html lang=\"en\"><head><script src=\"/javascripts/jquery-1.10.0.min.js\">"))
+            {
+                OnLoginError("Incorrect Password");
+                _Connected = false;
+            }
+
             getxhrval();
             int counter = 0;
             while (!gotinit && _Connected)
@@ -407,33 +439,51 @@ namespace JDCAPI
                 return Connected;
             }
         }
-
+        int xhrLevel = 0;
         /// <summary>
         /// Gets the xhr polling information
         /// </summary>
         private void getxhrval()
         {
-            var getxhrval = (HttpWebRequest)HttpWebRequest.Create(host+"/socket.io/1/" + "?t=" + CurrentDate());
-            if (Proxy != null)
-                getxhrval.Proxy = Proxy;
-            getxhrval.Referer = host;
-            getxhrval.UserAgent = "JDCAPI - " + UserAgent;
-            getxhrval.CookieContainer = request.CookieContainer;
-           
-            HttpWebResponse respGetxhrVal = (HttpWebResponse)getxhrval.GetResponse();
-            string xhrString = new StreamReader(respGetxhrVal.GetResponseStream()).ReadToEnd();
-            foreach (Cookie cookievalue in respGetxhrVal.Cookies)
+            try
             {
-                request.CookieContainer.Add(cookievalue);
-                switch (cookievalue.Name)
-                {
-                    case "connect.sid": conid = cookievalue.Value; break;
-                    case "__cfduid": id = cookievalue.Value; break;
-                    case "hash": hash = cookievalue.Value; break;
-                }
+                Thread.Sleep(300);
+                var getxhrval = (HttpWebRequest)HttpWebRequest.Create(host + "/socket.io/1/" + "?t=" + CurrentDate());
+                if (Proxy != null)
+                    getxhrval.Proxy = Proxy;
+                getxhrval.Referer = host;
+                getxhrval.UserAgent = "JDCAPI - " + UserAgent;
+                getxhrval.CookieContainer = request.CookieContainer;
 
+                HttpWebResponse respGetxhrVal = (HttpWebResponse)getxhrval.GetResponse();
+                string xhrString = new StreamReader(respGetxhrVal.GetResponseStream()).ReadToEnd();
+                foreach (Cookie cookievalue in respGetxhrVal.Cookies)
+                {
+                    request.CookieContainer.Add(cookievalue);
+                    switch (cookievalue.Name)
+                    {
+                        case "connect.sid": conid = cookievalue.Value; break;
+                        case "__cfduid": id = cookievalue.Value; break;
+                        case "hash": hash = cookievalue.Value; break;
+                    }
+
+                }
+                xhrval = xhrString.Split(':')[0];
+                xhrLevel = 0;
             }
-            xhrval = xhrString.Split(':')[0];
+            catch
+            {
+                xhrLevel++;
+                if (xhrLevel <3)
+                {
+
+                    getxhrval();
+                }
+                else
+                {
+
+                }
+            }
         }
 
         /// <summary>
@@ -442,7 +492,7 @@ namespace JDCAPI
         /// </summary>
         private bool getInitalHeaders()
         {
-
+            string sResponse = "";
             request = (HttpWebRequest)HttpWebRequest.Create(host);
             if (Proxy != null)
                 request.Proxy = Proxy;
@@ -463,54 +513,74 @@ namespace JDCAPI
             }
             catch (WebException e)
             {
-                Response = (HttpWebResponse)e.Response;
-                string s1 = new StreamReader(Response.GetResponseStream()).ReadToEnd();
-                string tmp = s1.Substring(s1.IndexOf("var t,r,a,f,"));
-                string varfirst =tmp.Substring("var t,r,a,f,".Length+1, tmp.IndexOf("=") - "var t,r,a,f,".Length-1);
-                string varsec = tmp.Substring(tmp.IndexOf("{\"")+2, tmp.IndexOf("\"", tmp.IndexOf("{\"") + 3) - tmp.IndexOf("{\"")-2);
-                string var = varfirst + "." + varsec;
-                string varline = "var " + tmp.Substring("var t,r,a,f,".Length + 1, tmp.IndexOf(";") - "var t,r,a,f,".Length);
-                string initbval = tmp.Substring(tmp.IndexOf(":+")+1, tmp.IndexOf("))") + 3 - tmp.IndexOf(":+")-1);
-                string vallist = tmp.Substring(tmp.IndexOf(var), tmp.IndexOf("a.value") - tmp.IndexOf(var));
-                Microsoft.JScript.Vsa.VsaEngine Engine = Microsoft.JScript.Vsa.VsaEngine.CreateEngine();
-                string script = varline + vallist;
-                object Result = 0;
-                try
+                if (logging)
+                    writelog(e.Message);
+
+                if (e.Response != null)
                 {
-                    Result = Microsoft.JScript.Eval.JScriptEvaluate(script, Engine);
-                }
-                catch (Exception ex)
-                {
+                    Response = (HttpWebResponse)e.Response;
+                    string s1 = new StreamReader(Response.GetResponseStream()).ReadToEnd();
+                    string tmp = s1.Substring(s1.IndexOf("var t,r,a,f,"));
+                    string varfirst = tmp.Substring("var t,r,a,f,".Length + 1, tmp.IndexOf("=") - "var t,r,a,f,".Length - 1);
+                    string varsec = tmp.Substring(tmp.IndexOf("{\"") + 2, tmp.IndexOf("\"", tmp.IndexOf("{\"") + 3) - tmp.IndexOf("{\"") - 2);
+                    string var = varfirst + "." + varsec;
+                    string varline = "var " + tmp.Substring("var t,r,a,f,".Length + 1, tmp.IndexOf(";") - "var t,r,a,f,".Length);
+                    string initbval = tmp.Substring(tmp.IndexOf(":+") + 1, tmp.IndexOf("))") + 3 - tmp.IndexOf(":+") - 1);
+                    string vallist = tmp.Substring(tmp.IndexOf(var), tmp.IndexOf("a.value") - tmp.IndexOf(var));
                     
+                    string script = varline + vallist;
+                    object Result = 0;
+                    try
+                    {
+                        Result = ScriptEngine.Eval("jscript", script);
+                    }
+                    catch (Exception ex)
+                    {
+
+                    }
+                    int aval = int.Parse(Result.ToString(), System.Globalization.CultureInfo.InvariantCulture);
+
+
+                    string jschl_vc = s1.Substring(s1.IndexOf(" name=\"jschl_vc\" value=\""));
+                    jschl_vc = jschl_vc.Substring(("name=\"jschl_vc\" value=\"").Length + 1);
+                    int len = jschl_vc.IndexOf("\"/>\n");
+                    jschl_vc = jschl_vc.Substring(0, len);
+                    try
+                    {
+                        //string content = new WebClient().DownloadString("cdn-cgi/l/chk_jschl?jschl_vc=1bb30f6e73b41c8dd914ccbf64576147&jschl_answer=84");
+                        CookieContainer cookies2 = request.CookieContainer;
+                        string req = string.Format(host + "/cdn-cgi/l/chk_jschl?jschl_vc={0}&jschl_answer={1}", jschl_vc, aval + 13);
+                        request = (HttpWebRequest)HttpWebRequest.Create(req);
+                        if (Proxy != null)
+                            request.Proxy = Proxy;
+                        request.UserAgent = "JDCAPI - " + UserAgent;
+                        request.CookieContainer = cookies2;
+                        Response = (HttpWebResponse)request.GetResponse(); 
+                        
+                    }
+                    catch
+                    {
+                        return false;
+                    }
                 }
-                int aval = int.Parse(Result.ToString(), System.Globalization.CultureInfo.InvariantCulture);
-                
-                
-                string jschl_vc = s1.Substring(s1.IndexOf(" name=\"jschl_vc\" value=\""));
-                jschl_vc = jschl_vc.Substring(("name=\"jschl_vc\" value=\"").Length + 1);
-                int len = jschl_vc.IndexOf("\"/>\n");
-                jschl_vc = jschl_vc.Substring(0, len);
-                try
+                else
                 {
-                    //string content = new WebClient().DownloadString("cdn-cgi/l/chk_jschl?jschl_vc=1bb30f6e73b41c8dd914ccbf64576147&jschl_answer=84");
-                    CookieContainer cookies2 = request.CookieContainer;
-                    string req = string.Format(host + "/cdn-cgi/l/chk_jschl?jschl_vc={0}&jschl_answer={1}", jschl_vc, aval + 13);
-                    request = (HttpWebRequest)HttpWebRequest.Create(req);
-                    if (Proxy != null)
-                        request.Proxy = Proxy;
-                    request.UserAgent = "JDCAPI - " + UserAgent;
-                    request.CookieContainer = cookies2;
-                    Response = (HttpWebResponse)request.GetResponse();
-                }
-                catch
-                {
+                    Connected = false;
                     return false;
                 }
             }
             
 
             string s = new StreamReader(Response.GetResponseStream()).ReadToEnd();
-
+            if (s.StartsWith("<!DOCTYPE html><html lang=\"en\"><head><script src=\"/javascripts/jquery-1.10.0.min.js\">"))
+            {
+                if (OnLoginError != null && sUsername == "" && sPassword == "")
+                {
+                    OnLoginError("This account requires a username and password");
+                    Connected = false;
+                    return false;
+                }
+            }
             foreach (Cookie cookievalue in Response.Cookies)
             {
                 request.CookieContainer.Add(cookievalue);
@@ -528,6 +598,9 @@ namespace JDCAPI
             
             Response = (HttpWebResponse)request.GetResponse();
             s = new StreamReader(Response.GetResponseStream()).ReadToEnd();
+
+            
+
             foreach (Cookie cookievalue in Response.Cookies)
             {
                 request.CookieContainer.Add(cookievalue);
@@ -651,7 +724,7 @@ namespace JDCAPI
 
         private void pollingLoop()
         {
-            while (active)
+            while (active) 
             {
                 for (int i = 0; i < request.CookieContainer.GetCookies(request.RequestUri).Count; i++)
                 {
@@ -668,11 +741,12 @@ namespace JDCAPI
                     inconnection = false;
                     
                 }
-                Thread.Sleep(100);
+                Thread.Sleep(5);
                 
             }
             
         }
+        
         int dcount = 0;
         private void GetInfo()
         {
@@ -726,6 +800,7 @@ namespace JDCAPI
                 string s2 = e.Message;
                 if (logging)
                     writelog("caught!" + s2);
+                //throw e;
                 //active = false;
             }
         }
@@ -754,11 +829,12 @@ namespace JDCAPI
                 }
                 else
                 {
-
+                    
                 }
 
                 foreach (string s in returns)
                 {
+                    ReceivedObject t = json.JsonDeserialize<ReceivedObject>(s);
                     if (s.Length > 13)
                     {
                         string tmpstring = s.Substring(9, s.IndexOf("\"", 9) - 9);
@@ -769,13 +845,18 @@ namespace JDCAPI
                                 OnPong();
                             }
                         }
-                        if (tmpstring.Contains("result"))
+                        if (tmpstring.Contains("result") && !tmpstring.Contains("old_results"))
                         {
+                            Result tmp =  t.args[0] as Result;
                             ProcessResult(s);
                         }
                         else if (tmpstring.Contains("init"))
                         {
                             ProcessInit(s);
+                        }
+                        else if (tmpstring.Contains("history"))
+                        {
+                            ProcessHistory(s);
                         }
                         else if (tmpstring.Contains("chat"))
                         {
@@ -803,9 +884,13 @@ namespace JDCAPI
                         {
                             ProcessDetails(s);
                         }
-                        else if (tmpstring.Contains("ga_info") && !logginging)
+                        else if (tmpstring.Contains("setup_ga") && !logginging)
                         {
                             ProcessSetupGa(s);
+                        }
+                        else if (tmpstring.Contains("ga_info") && !logginging)
+                        {
+                            ProcessGaInfo(s);
                         }
                         else if (tmpstring.Contains("ga_code_ok") && !logginging)
                         {
@@ -835,38 +920,39 @@ namespace JDCAPI
                                 Various tmp = ProcessVarious(s);
                                 switch (tmp.name)
                                 {
-                                    case "invest": if (onInvest != null && !logginging) onInvest(new Invest 
-                                    { 
-                                        Amount=decimal.Parse(tmp.args[0].ToString()), 
-                                        Percentage =decimal.Parse(tmp.args[1].ToString()),
-                                        Profit = decimal.Parse(tmp.args[2].ToString()),
-                                        Offsite = decimal.Parse(tmp.args[3].ToString()),
+                                    case "invest": Invest tmp2 = new Invest 
+                                    {
+                                        Amount = decimal.Parse(tmp.args[0].ToString(), System.Globalization.CultureInfo.InvariantCulture),
+                                        Percentage = decimal.Parse(tmp.args[1].ToString(), System.Globalization.CultureInfo.InvariantCulture),
+                                        Profit = decimal.Parse(tmp.args[2].ToString(), System.Globalization.CultureInfo.InvariantCulture),
+                                        Offsite = decimal.Parse(tmp.args[3].ToString(), System.Globalization.CultureInfo.InvariantCulture),
 
-                                    }); break;
+                                    }; this.Investment = tmp2.Amount; this.Percent = tmp2.Percentage; this.Invest_pft=tmp2.Profit; if (onInvest != null && !logginging) onInvest(tmp2 ); break;
                                     case "invest_error": if (OnInvestError != null && !logginging) OnInvestError(tmp.args[0].ToString()); break;
                                     case "divest_error": if (OnDivestError != null && !logginging) OnDivestError(tmp.args[0].ToString()); break;
+                                    case "offset": this.Offset = decimal.Parse(tmp.args[0].ToString(), System.Globalization.CultureInfo.InvariantCulture); if (this.OnOffset != null) OnOffset(this.Offset); break;
                                     case "wdaddr": if (OnWDAddress != null && !logginging) OnWDAddress(tmp.args[0].ToString()); break;
-                                    case "balance": if (OnBalance != null && !logginging) OnBalance(decimal.Parse(tmp.args[0].ToString())); break;
+                                    case "balance": this.Balance = double.Parse(tmp.args[0].ToString(), System.Globalization.CultureInfo.InvariantCulture); if (OnBalance != null && !logginging) OnBalance(decimal.Parse(tmp.args[0].ToString(), System.Globalization.CultureInfo.InvariantCulture)); break;
                                     case "shash": this.shash = tmp.args[0].ToString(); if (OnSecretHash != null && !logginging) OnSecretHash(tmp.args[0].ToString()); break;
                                     case "seed": this.seed = tmp.args[0].ToString(); if (OnClientSeed != null && !logginging) OnClientSeed(tmp.args[0].ToString()); break;
                                     case "bad_seed": if (OnBadClientSeed != null && !logginging) OnBadClientSeed(tmp.args[0].ToString()); break;
-                                    case "nonce": if (OnNonce != null && !logginging) OnNonce(int.Parse(tmp.args[0].ToString())); break;
+                                    case "nonce": this.Nonce = int.Parse(tmp.args[0].ToString()); if (OnNonce != null && !logginging) OnNonce(int.Parse(tmp.args[0].ToString())); break;
                                     case "jderror": if (OnJDError != null && !logginging) OnJDError(tmp.args[0].ToString()); break;
                                     case "jdmsg": if (OnJDMessage != null && !logginging) OnJDMessage(tmp.args[0].ToString()); break;
                                     case "form_error": if (OnFormError != null && !logginging) OnFormError(tmp.args[0].ToString()); break;
                                     case "login_error": if (OnLoginError != null && !logginging) OnLoginError(tmp.args[0].ToString()); break;
-                                    case "wins": if (OnWins != null && !logginging) OnWins(long.Parse(tmp.args[0].ToString())); break;
-                                    case "losses": if (OnLossess != null && !logginging) OnLossess(long.Parse(tmp.args[0].ToString())); break;
+                                    case "wins": this.Wins = long.Parse(tmp.args[0].ToString()); if (OnWins != null && !logginging) OnWins(long.Parse(tmp.args[0].ToString())); break;
+                                    case "losses": this.Losses = long.Parse(tmp.args[0].ToString()); if (OnLossess != null && !logginging) OnLossess(long.Parse(tmp.args[0].ToString())); break;
                                     //case "details": if (OnDetails != null && !logginging) OnDetails(tmp); break;
-                                    case "max_profit": if (OnMaxProfit != null && !logginging) OnMaxProfit(decimal.Parse(tmp.args[0].ToString())); break;
-                                    case "new_client_seed": if (OnNewClientSeed != null && !logginging) OnNewClientSeed(
+                                    case "max_profit": this.MaxProfit = double.Parse(tmp.args[0].ToString(), System.Globalization.CultureInfo.InvariantCulture); if (OnMaxProfit != null && !logginging) OnMaxProfit(decimal.Parse(tmp.args[0].ToString(), System.Globalization.CultureInfo.InvariantCulture)); break;
+                                    case "new_client_seed": this.shash = tmp.args[0].ToString(); if (OnNewClientSeed != null && !logginging) OnNewClientSeed(
                                         new SeedInfo 
                                         {
                                             OldServerSeed = tmp.args[0].ToString(),
-                                            OldServerHash = tmp.args[0].ToString(),
-                                            OldClientSeed = tmp.args[0].ToString(),
-                                            TotalRolls = tmp.args[0].ToString(),
-                                            NewServerHash = tmp.args[0].ToString()
+                                            OldServerHash = tmp.args[1].ToString(),
+                                            OldClientSeed = tmp.args[2].ToString(),
+                                            TotalRolls = tmp.args[3].ToString(),
+                                            NewServerHash = tmp.args[4].ToString()
                                         }
                                         ); break;
                                     case "address": if (OnAddress != null && !logginging) OnAddress(new Address 
@@ -877,17 +963,33 @@ namespace JDCAPI
                                     }
                                     ); break;
                                     case "pong": if (OnPong != null && !logginging) OnPong(); break;
-                                    case "reload": Reconnect(); break;
+                                    //case "reload": Reconnect(); break;
                                 }
                             }
-                            catch
+                            catch (Exception E)
                             {
-
+                                if (logging)
+                                    writelog("Caught! " + E.Message);
+                                throw E;
                             }
                         }
                     }
                 }
             }
+        }
+
+        private void ProcessHistory(string JsonString)
+        {
+            int start = JsonString.IndexOf("[") + 1;
+            int length = JsonString.IndexOf("]") - start;
+            start = JsonString.IndexOf('[') + 1;
+            length = JsonString.LastIndexOf(']') - start ;
+            JsonString = JsonString.Substring(start, length);
+            int val = JsonString.IndexOf(",");
+            JsonString = JsonString.Remove(val, 1).Insert(val, ":");
+            History tmp = json.JsonDeserialize<History>("{"+JsonString+"}");
+            if (OnHistory != null)
+                OnHistory(tmp);
         }
 
         private void ProcessGaCode(string JsonString)
@@ -904,6 +1006,18 @@ namespace JDCAPI
         }
 
         private void ProcessSetupGa(string JsonString)
+        {
+            int start = JsonString.IndexOf("[") + 1;
+            int length = JsonString.IndexOf("]") - start;
+            start = JsonString.IndexOf('[') + 1;
+            length = JsonString.LastIndexOf(']') - start + 1;
+            JsonString = JsonString.Substring(start, length);
+            SetupGa tmp = json.JsonDeserialize<SetupGa>(JsonString);
+            if (OnSetupGa != null)
+                OnSetupGa(tmp);
+        }
+
+        private void ProcessGaInfo(string JsonString)
         {
             int start = JsonString.IndexOf("[") + 1;
             int length = JsonString.IndexOf("]") - start;
@@ -999,9 +1113,13 @@ namespace JDCAPI
                 Bankroll = double.Parse(tmp.bankroll, System.Globalization.CultureInfo.InvariantCulture);
                 MaxProfit = double.Parse(tmp.max_profit, System.Globalization.CultureInfo.InvariantCulture);
                 Investment = tmp.investment;
-                Invest_pft = tmp.invest_pft;
+                Invest_pft = (decimal)tmp.invest_pft;
                 Percent = tmp.percent;
-                Stats = tmp.stats;                
+                Stats = tmp.stats;      
+                if (tmp.uid == uid)
+                {
+                    this.Nonce = tmp.nonce;
+                }
                 if (tmp.balance == null)
                 {
                     tmp.balance = Balance.ToString();
@@ -1019,8 +1137,7 @@ namespace JDCAPI
                     _Profit = decimal.Parse(tmp.profit, System.Globalization.CultureInfo.InvariantCulture);
                 }
                 
-                if (OnResult != null)
-                    OnResult(tmp, (tmp.uid == uid));
+                
 
                 Bet tmp2 = new Bet();
                 tmp2.bet = tmp.bet;
@@ -1035,6 +1152,8 @@ namespace JDCAPI
                 tmp2.returned = tmp.ret;
                 tmp2.this_profit = tmp.this_profit;
                 tmp2.uid = tmp.uid;
+                if (OnResult != null)
+                    OnResult(tmp, (tmp.uid == uid));
                 if (OnBet != null && !logginging)
                     OnBet(tmp2, (tmp2.uid == uid) );
                 
@@ -1049,6 +1168,9 @@ namespace JDCAPI
             JsonString = JsonString.Substring(start, length);
             JsonString = JsonString.Replace(((char)011).ToString(), "");
             StakeBase tmp = json.JsonDeserialize<StakeBase>(JsonString);
+            this.Investment = tmp.args[0].investment;
+            this.Invest_pft = tmp.args[0].invest_pft;
+            this.stake_profit = tmp.args[0].stake_pft;
             if (OnStake != null)
                 OnStake(tmp.args[0]);
         }
@@ -1080,7 +1202,7 @@ namespace JDCAPI
         {
             ReceivedTip tmp = new ReceivedTip();
             Message = Message.Replace("INFO: you received a ", "");
-            tmp.Amount = double.Parse(Message.Substring(0, Message.IndexOf("CLAM" )- 1));
+            tmp.Amount = double.Parse(Message.Substring(0, Message.IndexOf("CLAM") - 1), System.Globalization.CultureInfo.InvariantCulture);
             Message = Message.Substring(tmp.Amount.ToString().Length+ " CLAM tip from (".Length);
             tmp.FromID = int.Parse(Message.Substring(0, Message.IndexOf(")")));
             tmp.FromUser = Message.Substring(Message.IndexOf(" ") + 1);
@@ -1122,6 +1244,7 @@ namespace JDCAPI
 
         }
 
+        
         private void ProcessOldResults(string JsonString)
         {
             gotinit = true;
@@ -1139,10 +1262,13 @@ namespace JDCAPI
                 oldbets tmp = json.JsonDeserialize<oldbets>(JsonString);
                 for (int i = 0; i < tmp.args.Length; i++)
                 {
-
+                    if (OnOldBets != null && !logginging)
+                    {
+                        OnOldBets(tmp.args[i], (tmp.args[i].uid == uid));
+                    }
                     if (OnBet != null && !logginging)
                     {
-                        OnBet(tmp.args[i], (tmp.args[i].uid == uid) ? true : false);
+                        OnBet(tmp.args[i], (tmp.args[i].uid == uid));
                     }
                 }
             }
@@ -1175,8 +1301,10 @@ namespace JDCAPI
             Fee = Initial.fee;
             Ignores = Initial.ignores;
             Investment = (decimal)Initial.investment;
-            Invest_pft = Initial.invest_pft;
-
+            Invest_pft = (decimal)Initial.invest_pft;
+            this.Offsite = Initial.offsite;
+            this.Offset = Initial.offset;
+            this.stake_profit = Initial.stake_pft;
             Losses = long.Parse(Initial.losses, System.Globalization.CultureInfo.InvariantCulture);
             
             Wins  = long.Parse(Initial.wins, System.Globalization.CultureInfo.InvariantCulture);
@@ -1194,6 +1322,9 @@ namespace JDCAPI
             uid = Initial.uid;
             _Profit = decimal.Parse(Initial.profit, System.Globalization.CultureInfo.InvariantCulture);
             Wagered = decimal.Parse(Initial.wagered, System.Globalization.CultureInfo.InvariantCulture);
+
+            this.ga = Initial.ga;
+
             for (int i = 0; i < Initial.chat.Count-1; i += 2)
             {
                 Chat tmpChat = json.JsonDeserialize<initchat>(Initial.chat[i].ToString()).ConvertToChat(Initial.chat[i + 1].ToString());
@@ -1202,6 +1333,8 @@ namespace JDCAPI
                     OnOldChat(tmpChat);
                 }
             }
+            if (OnInit != null)
+                OnInit(Initial);
             //logginging = false;
         }
 
@@ -1228,6 +1361,17 @@ namespace JDCAPI
         
 
         #region Emits
+        public void ResetProfit()
+        {
+            Thread tDeposit = new Thread(new ParameterizedThreadStart(Emit));
+            tDeposit.Start("5:::{\"name\":\"reset_profit\",\"args\":[\"" + csrf + "\"]}");
+        }
+
+        public void Deposit()
+        {
+            Thread tDeposit = new Thread(new ParameterizedThreadStart(Emit));
+            tDeposit.Start("5:::{\"name\":\"deposit\",\"args\":[\"" + csrf + "\"]}");
+        }
 
         public void Login(string Username, string Password, string GACode)
         {
@@ -1259,16 +1403,27 @@ namespace JDCAPI
             tName.Start(string.Format("5:::{{\"name\":\"name\",\"args\":[\"{0}\",\"{1}\"]}}", csrf, NickName));
         }
 
-        public void Invest(double Amount, double Code)
+        public void Invest(double Amount, string Code)
         {
             Thread tInvest = new Thread(new ParameterizedThreadStart(Emit));
             tInvest.Start(string.Format("5:::{{\"name\":\"invest\",\"args\":[\"{0}\",\"{1}\",\"{2}\"]}}", csrf, Amount, Code));
         }
 
-        public void Divest(double Amount, double Code)
+        public void Divest(double Amount, string Code)
         {
             Thread tDivest = new Thread(new ParameterizedThreadStart(Emit));
             tDivest.Start(string.Format("5:::{{\"name\":\"divest\",\"args\":[\"{0}\",\"{1}\",\"{2}\"]}}", csrf, Amount, Code));
+        }
+        public void InvestAll(string Code)
+        {
+            Thread tInvest = new Thread(new ParameterizedThreadStart(Emit));
+            tInvest.Start(string.Format("5:::{{\"name\":\"invest\",\"args\":[\"{0}\",\"all\",\"{1}\"]}}", csrf,  Code));
+        }
+
+        public void DivestAll(string Code)
+        {
+            Thread tDivest = new Thread(new ParameterizedThreadStart(Emit));
+            tDivest.Start(string.Format("5:::{{\"name\":\"divest\",\"args\":[\"{0}\",\"all\",\"{1}\"]}}", csrf,  Code));
         }
 
         public void SetupAccount(string Username, string Password)
@@ -1286,13 +1441,13 @@ namespace JDCAPI
         public void EditGa()
         {
             Thread tSetupGaCode = new Thread(new ParameterizedThreadStart(Emit));
-            tSetupGaCode.Start(string.Format("5:::{{\"name\":\"edit_ga\",\"args\":[\"{0}\"}}", csrf));
+            tSetupGaCode.Start(string.Format("5:::{{\"name\":\"edit_ga\",\"args\":[\"{0}\"]}}", csrf));
         }
 
         public void DoneEditGa(string Code, GAFlags Flags)
         {
             Thread tSetupGaCode = new Thread(new ParameterizedThreadStart(Emit));
-            tSetupGaCode.Start(string.Format("5:::{{\"name\":\"done_edit_ga\",\"args\":[\"{0}\",\"{1}\",\"{2}\"]}}", csrf, Code, json.JsonSerializer<GAFlags>(Flags)));
+            tSetupGaCode.Start(string.Format("5:::{{\"name\":\"done_edit_ga\",\"args\":[\"{0}\",\"{1}\",{2}]}}", csrf, Code, json.JsonSerializer<GAFlags>(Flags).Replace("_"," ")));
         }
 
         public void DisableGa(string Code)
@@ -1314,19 +1469,20 @@ namespace JDCAPI
         {
             Thread tSeed = new Thread(new ParameterizedThreadStart(Emit));
             string NewSeed = RandomSeed();
-            string tmp = string.Format("5:::{{\"name\":\"seed\",\"args\":[\"{0}\",\"{1}\",\"false\"]}}", csrf, RandomSeed());
+            string tmp = string.Format("5:::{{\"name\":\"seed\",\"args\":[\"{0}\",\"{1}\",true]}}", csrf, RandomSeed());
             tSeed.Start(tmp);
         }
 
         public void Seed(string Seed)
         {
             Thread tSeed = new Thread(new ParameterizedThreadStart(Emit));
-            tSeed.Start(string.Format("5:::{{\"name\":\"seed\",\"args\":[\"{0}\",\"{1}\",\"true\"]}}", csrf, Seed));
+            tSeed.Start(string.Format("5:::{{\"name\":\"seed\",\"args\":[\"{0}\",\"{1}\",true]}}", csrf, Seed));
         }
 
-        public bool History(string Type)
+        public void History(HistoryType Type)
         {
-            return false;
+            Thread tSeed = new Thread(new ParameterizedThreadStart(Emit));
+            tSeed.Start(string.Format("5:::{{\"name\":\"history\",\"args\":[\"{0}\",\"{1}\"]}}", csrf, Type.ToString()));
         }
 
         public void ChangePassword(string CurrentPassword, string Password)
@@ -1359,31 +1515,48 @@ namespace JDCAPI
             string Message = "";
             switch (Type)
             {
-                case SettingsType_Numeric.Chat_Minimum_Change: Message = "chat_min_change"; break;
-                case SettingsType_Numeric.Chat_Minimum_Risk: Message = "chat_min_risk"; break;
-                case SettingsType_Numeric.Chat_Watch_Player: Message = "chat_watch_player"; break;
-                case SettingsType_Numeric.Minimum_Change: Message = "min_change"; break;
-                case SettingsType_Numeric.Minimum_Risk: Message = "min_risk"; break;
-                case SettingsType_Numeric.Roll_Delay: Message = "roll_delay"; break;
-                case SettingsType_Numeric.Watch_Player: Message = "watch_player"; break;
+                case SettingsType_Numeric.Chat_Minimum_Change: Message = "chat_min_change"; this.Settings.chat_min_change = (double)Value; break;
+                case SettingsType_Numeric.Chat_Minimum_Risk: Message = "chat_min_risk"; this.Settings.chat_min_risk = (double)Value; break;
+
+                case SettingsType_Numeric.Minimum_Change: Message = "min_change"; this.Settings.min_change = (double)Value; break;
+                case SettingsType_Numeric.Minimum_Risk: Message = "min_risk"; this.Settings.min_risk = (double)Value; break;
+                case SettingsType_Numeric.Roll_Delay: Message = "roll_delay"; this.Settings.roll_delay = (double)Value; break;
+                case SettingsType_Numeric.Max_Double: Message = "max_double"; this.Settings.max_double = (double)Value; break;
+                
             }
             Thread tSettings = new Thread(new ParameterizedThreadStart(Emit));
-            tSettings.Start(string.Format("5:::{{\"name\":\"settings\",\"args\":[\"{0}\",\"float\",\"{1}\",\"{2}\"]}}", csrf, Message, Value));
+            tSettings.Start(string.Format("5:::{{\"name\":\"setting\",\"args\":[\"{0}\",\"float\",\"{1}\",\"{2}\"]}}", csrf, Message, Value));
+        }
+        public void SetSettings(SettingsType_String Type, string Value)
+        {
+            string Message = "";
+            string type = "text";
+            switch (Type)
+            {
+
+                case SettingsType_String.Chat_Watch_Player: Message = "chat_watch_player"; this.Settings.chat_watch_player = Value; break;
+                case SettingsType_String.Watch_Player: Message = "watch_player"; this.Settings.watch_player = Value; break;
+                case SettingsType_String.Email: Message = "emailaddr"; break;
+                case SettingsType_String.Emergency_Address: Message = "btcaddr"; type = "addr"; this.Settings.btcaddr = Value; break;
+            }
+
+            Thread tSettings = new Thread(new ParameterizedThreadStart(Emit));
+            tSettings.Start(string.Format("5:::{{\"name\":\"setting\",\"args\":[\"{0}\",\"{3}\",\"{1}\",\"{2}\"]}}", csrf, Message, Value, type));
         }
         public void SetSettings( SettingsType_Boolean Type, bool Value)
         {
             string Message = "";
             switch (Type)
             {
-                case SettingsType_Boolean.Alarm: Message = "alarm"; break;
-                case SettingsType_Boolean.AllBetsMe: Message = "allbetsme"; break;
-                case SettingsType_Boolean.AutoInvest: Message = "autoinvest"; break;
-                case SettingsType_Boolean.Chatstake: Message = "chatstake"; break;
-                case SettingsType_Boolean.MuteChat: Message = "mutechat"; break;
-                case SettingsType_Boolean.Shortcuts: Message = "shortcuts"; break;
+                case SettingsType_Boolean.Alarm: Message = "alarm"; this.Settings.alarm = Value; break;
+                case SettingsType_Boolean.AllBetsMe: Message = "allbetsme"; this.Settings.allbetsme = Value; break;
+                case SettingsType_Boolean.AutoInvest: Message = "autoinvest"; this.Settings.autoinvest = Value; break;
+                case SettingsType_Boolean.Chatstake: Message = "chatstake"; this.Settings.chatstake = Value; break;
+                case SettingsType_Boolean.MuteChat: Message = "mutechat"; this.Settings.mutechat = Value; break;
+                case SettingsType_Boolean.Shortcuts: Message = "shortcuts"; this.Settings.shortcuts = Value; break;
             }
             Thread tSettings = new Thread(new ParameterizedThreadStart(Emit));
-            tSettings.Start(string.Format("5:::{{\"name\":\"settings\",\"args\":[\"{0}\",\"bool\",\"{1}\",\"{2}\"]}}", csrf, Message, Value?"1":"0"));
+            tSettings.Start(string.Format("5:::{{\"name\":\"setting\",\"args\":[\"{0}\",\"bool\",\"{1}\",\"{2}\"]}}", csrf, Message, Value?"1":"0"));
         }
         int emitlevel = 0;
         private void Emit(object Message)
@@ -1454,6 +1627,11 @@ namespace JDCAPI
         //Gets triggered together with onResult, has less info about the other stuff
         public delegate void dOnBet(Bet bet, bool IsMine);
         public event dOnBet OnBet;
+
+        /// <summary>
+        /// Triggers when connected to site and old bet results are sent to client
+        /// </summary>
+        public event dOnBet OnOldBets;
 
         //triggers on successfull invest
         public delegate void dInvest(Invest InvestResult);
@@ -1554,8 +1732,10 @@ namespace JDCAPI
         public delegate void dPong();
         public event dPong OnPong;
 
-        //on History, still need to Figure out what this does....
-
+        //on History, triggers after a history call for deposits,withdraw,invest or commission history
+        public delegate void dOnHistory(History History);
+        public event dOnHistory OnHistory;
+        
 
         //on roll - gets the result of a roll requested by user
         public delegate void dRoll(Roll roll);
@@ -1564,6 +1744,9 @@ namespace JDCAPI
         public delegate void dLoginEnd(bool Connected);
         public event dLoginEnd LoginEnd;
 
+        //on ga setup
+        public delegate void dSetupGa(SetupGa GaSetup);
+        public event dSetupGa OnSetupGa;
 
         //on ga code ok
         public delegate void dGaCodeOK(GoogleAuthSettings GASettings);
@@ -1576,6 +1759,14 @@ namespace JDCAPI
         //on ga code ok
         public delegate void dGaDone();
         public event dGaDone onGaDone;
+
+        //on init, after login or connecting
+        public delegate void dOnInit(init Init);
+        public event dOnInit OnInit;
+
+        //on offset, triggers when a user resets profit
+        public delegate void dOnOffset(decimal Offest);
+        public event dOnOffset OnOffset;
         #endregion
 
         //used for logging and debugging stuff
@@ -1601,6 +1792,10 @@ namespace JDCAPI
             writing = false;
         }
 
+        public void Dispose()
+        {
+            Disconnect();
+        }
     }
 
     

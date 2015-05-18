@@ -67,8 +67,6 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Microsoft.JScript" />
-    <Reference Include="Microsoft.Vsa, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Runtime.Serialization" />
@@ -83,6 +81,7 @@
     <Compile Include="Bet.cs" />
     <Compile Include="Chat.cs" />
     <Compile Include="GoogleAuthSettings.cs" />
+    <Compile Include="History.cs" />
     <Compile Include="init.cs" />
     <Compile Include="Invest.cs" />
     <Compile Include="JDCAPI.cs" />
@@ -90,6 +89,7 @@
     <Compile Include="oldbets.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Result.cs" />
+    <Compile Include="ScriptEngine.cs" />
     <Compile Include="stake.cs" />
     <Compile Include="Various.cs" />
   </ItemGroup>

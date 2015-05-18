@@ -49,5 +49,10 @@ namespace JDCAPI
         public double commission { get; set; }
         public double wagered { get; set; }
         public double luck { get; set; }
+        public double cold { get; set; }
+        public double balance { get; set; }
+        public double sum1 { get; set; }
+        public double sum2 { get; set; }
+        public double taken { get; set; }
     }
 }
