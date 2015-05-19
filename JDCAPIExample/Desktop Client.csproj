@@ -39,6 +39,9 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>bin\Debug\Gma.QrCodeNet.Encoding.Net45.dll</HintPath>
     </Reference>
+    <Reference Include="JDChatEnhance">
+      <HintPath>..\..\JDChatEnhance\JDChatEnhance\bin\Debug\JDChatEnhance.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />

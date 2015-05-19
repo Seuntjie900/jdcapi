@@ -927,7 +927,7 @@ namespace JDCAPI
                                         Profit = decimal.Parse(tmp.args[2].ToString(), System.Globalization.CultureInfo.InvariantCulture),
                                         Offsite = decimal.Parse(tmp.args[3].ToString(), System.Globalization.CultureInfo.InvariantCulture),
 
-                                    }; this.Investment = tmp2.Amount; this.Percent = tmp2.Percentage; this.Invest_pft=tmp2.Profit; if (onInvest != null && !logginging) onInvest(tmp2 ); break;
+                                    }; this.Investment = tmp2.Amount; this.Percent = tmp2.Percentage; this.Invest_pft=tmp2.Profit; this.Offsite=tmp2.Offsite; if (onInvest != null && !logginging) onInvest(tmp2 ); break;
                                     case "invest_error": if (OnInvestError != null && !logginging) OnInvestError(tmp.args[0].ToString()); break;
                                     case "divest_error": if (OnDivestError != null && !logginging) OnDivestError(tmp.args[0].ToString()); break;
                                     case "offset": this.Offset = decimal.Parse(tmp.args[0].ToString(), System.Globalization.CultureInfo.InvariantCulture); if (this.OnOffset != null) OnOffset(this.Offset); break;

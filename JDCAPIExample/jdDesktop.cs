@@ -13,6 +13,7 @@ using Gma.QrCodeNet.Encoding;
 using System.IO;
 using System.Text.RegularExpressions;
 using WMPLib;
+using JDChatEnhance;
 
 namespace JDCAPIExample
 {
@@ -22,10 +23,15 @@ namespace JDCAPIExample
         jdInstance JD = new jdInstance();
         QrCodeImgControl qrDeposit = new QrCodeImgControl();
         Random RandObj = new Random();
+        JDCHat ch;
         public Form1()
         {
             
             InitializeComponent();
+            ch = new JDChatEnhance.JDCHat(JD.uid);
+            ch.SendChat += ch_SendChat;
+            tabControl1.TabPages[2].Controls.Add(ch);
+            ch.Dock = DockStyle.Fill;
             qrDeposit.Size = pictureBox1.Size;
             qrDeposit.Location = pictureBox1.Location;
             grbDeposit.Controls.Add(qrDeposit);
@@ -91,6 +97,11 @@ namespace JDCAPIExample
             {
                 JD.BeginConnect(false);
             }
+        }
+
+        void ch_SendChat(string Message)
+        {
+            JD.Chat(Message);
         }
 
         void JD_OnSetupGa(SetupGa GaSetup)
@@ -209,6 +220,7 @@ namespace JDCAPIExample
 
             }
             JD.Deposit();
+            ch.UID = JD.uid;
             UpdateLable(lblLogin, "Logged Id");
             UpdateTextBox(txtUID, JD.uid);
             UpdateTextBox(txtYourUsername, JD.Username);
@@ -445,7 +457,7 @@ namespace JDCAPIExample
             
             if (JD.Settings.chatstake)
             {
-                AppendMessage(string.Format("INFO: we just staked {0} CLAM (total = {1} CLAM; your total = {2} CLAM)", Staked.stake, Staked.total, Staked.stake_pft, Staked.date));
+                ch.OnChat(new Chat{ Date=jdInstance.ToDateTime(Staked.date.ToString()), Type="info", Message= string.Format("INFO: we just staked {0} CLAM (total = {1} CLAM; your total = {2} CLAM)", Staked.stake, Staked.total, Staked.stake_pft, Staked.date), UID="", User="" });
             }
         }
 
@@ -555,7 +567,7 @@ namespace JDCAPIExample
 
         void JD_OnOldChat(Chat chat)
         {
-            string AppendedMessages = chat.Date.ToShortTimeString() + " (" + chat.UID + ") ";
+            /*string AppendedMessages = chat.Date.ToShortTimeString() + " (" + chat.UID + ") ";
             if (chat.Type == "pm")
             {
                 AppendedMessages += "<" + chat.User + "> -> ";
@@ -581,8 +593,9 @@ namespace JDCAPIExample
             {
                 AppendedMessages += "<" + chat.User + ">";
             }
-            AppendedMessages += " " + chat.Message;
-            AppendMessage(AppendedMessages);
+            AppendedMessages += " " + chat.Message;*/
+            //AppendMessage(AppendedMessages);
+            ch.OnChat(chat);
         }
 
         void JD_OnNonce(int Nonce)
@@ -709,10 +722,11 @@ namespace JDCAPIExample
 
         void JD_OnChatInfo(string Message)
         {
-            AppendMessage(Message);
+            //AppendMessage(Message);
+            ch.OnChat(new Chat { Date=DateTime.Now, Message=Message, Type="info", UID="", User="", RawMessage=Message });
         }
 
-        delegate void dAppendMessage(string Message);
+       /* delegate void dAppendMessage(string Message);
         void AppendMessage(string Message)
         {
             if (InvokeRequired)
@@ -724,11 +738,11 @@ namespace JDCAPIExample
             {
                 rtbMessages.AppendText(Message + "\r\n");
             }
-        }
+        }*/
         void JD_OnChat(Chat chat)
         {
             
-            string AppendedMessages = chat.Date.ToShortTimeString() + " (" + chat.UID + ") ";
+            /*string AppendedMessages = chat.Date.ToShortTimeString() + " (" + chat.UID + ") ";
             if (chat.Type == "pm")
             {
                 AppendedMessages += "<" + chat.User + "> -> ";
@@ -755,7 +769,8 @@ namespace JDCAPIExample
                 AppendedMessages += "<" + chat.User + ">";
             }
             AppendedMessages += " " + chat.Message;
-            AppendMessage(AppendedMessages);
+            AppendMessage(AppendedMessages);*/
+            ch.OnChat(chat);
         }
 
         void JD_OnBet(Bet bet, bool IsMine)
@@ -789,12 +804,7 @@ namespace JDCAPIExample
         }
 
 
-        private void button3_Click(object sender, EventArgs e)
-        {
-            JD.Chat(txtMessage.Text);
-            txtMessage.Text = "";
-        }
-
+        
         private void btnLogIn_Click(object sender, EventArgs e)
         {
             JD.Login(txtLoginUsername.Text, txtLoginPassword.Text, txtLoginGa.Text);

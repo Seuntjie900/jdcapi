@@ -83,10 +83,6 @@
             this.dataGridViewTextBoxColumn9 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.dataGridViewTextBoxColumn10 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.tabPage3 = new System.Windows.Forms.TabPage();
-            this.rtbMessages = new System.Windows.Forms.RichTextBox();
-            this.panel2 = new System.Windows.Forms.Panel();
-            this.btnSend = new System.Windows.Forms.Button();
-            this.txtMessage = new System.Windows.Forms.TextBox();
             this.tabPage4 = new System.Windows.Forms.TabPage();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
             this.lblStatsSiteBets = new System.Windows.Forms.Label();
@@ -287,8 +283,6 @@
             ((System.ComponentModel.ISupportInitialize)(this.dgvAll)).BeginInit();
             this.tabPage2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvMy)).BeginInit();
-            this.tabPage3.SuspendLayout();
-            this.panel2.SuspendLayout();
             this.tabPage4.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.groupBox1.SuspendLayout();
@@ -843,51 +837,12 @@
             // 
             // tabPage3
             // 
-            this.tabPage3.Controls.Add(this.rtbMessages);
-            this.tabPage3.Controls.Add(this.panel2);
             this.tabPage3.Location = new System.Drawing.Point(4, 22);
             this.tabPage3.Name = "tabPage3";
             this.tabPage3.Size = new System.Drawing.Size(989, 291);
             this.tabPage3.TabIndex = 2;
             this.tabPage3.Text = "Chat";
             this.tabPage3.UseVisualStyleBackColor = true;
-            // 
-            // rtbMessages
-            // 
-            this.rtbMessages.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rtbMessages.HideSelection = false;
-            this.rtbMessages.Location = new System.Drawing.Point(0, 0);
-            this.rtbMessages.Name = "rtbMessages";
-            this.rtbMessages.Size = new System.Drawing.Size(989, 260);
-            this.rtbMessages.TabIndex = 0;
-            this.rtbMessages.Text = "";
-            // 
-            // panel2
-            // 
-            this.panel2.Controls.Add(this.btnSend);
-            this.panel2.Controls.Add(this.txtMessage);
-            this.panel2.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.panel2.Location = new System.Drawing.Point(0, 260);
-            this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(989, 31);
-            this.panel2.TabIndex = 1;
-            // 
-            // btnSend
-            // 
-            this.btnSend.Location = new System.Drawing.Point(906, 4);
-            this.btnSend.Name = "btnSend";
-            this.btnSend.Size = new System.Drawing.Size(75, 23);
-            this.btnSend.TabIndex = 1;
-            this.btnSend.Text = "Send";
-            this.btnSend.UseVisualStyleBackColor = true;
-            this.btnSend.Click += new System.EventHandler(this.button3_Click);
-            // 
-            // txtMessage
-            // 
-            this.txtMessage.Location = new System.Drawing.Point(9, 6);
-            this.txtMessage.Name = "txtMessage";
-            this.txtMessage.Size = new System.Drawing.Size(891, 20);
-            this.txtMessage.TabIndex = 0;
             // 
             // tabPage4
             // 
@@ -2776,9 +2731,6 @@
             ((System.ComponentModel.ISupportInitialize)(this.dgvAll)).EndInit();
             this.tabPage2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.dgvMy)).EndInit();
-            this.tabPage3.ResumeLayout(false);
-            this.panel2.ResumeLayout(false);
-            this.panel2.PerformLayout();
             this.tabPage4.ResumeLayout(false);
             this.groupBox2.ResumeLayout(false);
             this.groupBox2.PerformLayout();
@@ -2866,10 +2818,6 @@
         private System.Windows.Forms.TabPage tabPage1;
         private System.Windows.Forms.TabPage tabPage2;
         private System.Windows.Forms.TabPage tabPage3;
-        private System.Windows.Forms.RichTextBox rtbMessages;
-        private System.Windows.Forms.Panel panel2;
-        private System.Windows.Forms.Button btnSend;
-        private System.Windows.Forms.TextBox txtMessage;
         private System.Windows.Forms.TabPage tabPage4;
         private System.Windows.Forms.TabPage tabPage9;
         private System.Windows.Forms.TabPage tabPage5;
