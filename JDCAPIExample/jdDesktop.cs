@@ -219,7 +219,7 @@ namespace JDCAPIExample
             {
 
             }
-            JD.Deposit();
+            //JD.Deposit();
             ch.UID = JD.uid;
             UpdateLable(lblLogin, "Logged Id");
             UpdateTextBox(txtUID, JD.uid);
@@ -1100,6 +1100,13 @@ namespace JDCAPIExample
                 JD.EditGa();
             }
         }
+
+        private void button1_Click_1(object sender, EventArgs e)
+        {
+            JD.Repeat();
+        }
+
+
        
     }
 }

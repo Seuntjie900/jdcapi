@@ -7,12 +7,14 @@ using System.Web;
 using System.IO;
 using System.Threading;
 using System.Net;
+
 namespace JDCAPI
 {
     public class jdInstance: IDisposable
     {
         WebProxy Proxy;
         HttpWebRequest request;
+        
         string conid = "";
         string id = "";
         string csrf = "";
@@ -197,6 +199,8 @@ namespace JDCAPI
 
         private Random RandomSeedGen = new Random();
 
+        private DateTime Lastbet = DateTime.Now;
+        private bool bGotLastResult = true;
 
         public jdInstance()
         {
@@ -299,6 +303,7 @@ namespace JDCAPI
 
         }
 
+        
         private bool IntConnect(bool DogeDice)
         {
             xhrval = "";
@@ -346,9 +351,10 @@ namespace JDCAPI
                 Connected = false;
                 return Connected;
             }
+            
         }
 
-
+      
         /// <summary>
         /// Log into the site using a secret hash
         /// This simply sets the hash before doing the normal log in. Works great.
@@ -440,6 +446,7 @@ namespace JDCAPI
             }
         }
         int xhrLevel = 0;
+        
         /// <summary>
         /// Gets the xhr polling information
         /// </summary>
@@ -448,7 +455,7 @@ namespace JDCAPI
             try
             {
                 Thread.Sleep(300);
-                var getxhrval = (HttpWebRequest)HttpWebRequest.Create(host + "/socket.io/1/" + "?t=" + CurrentDate());
+                var getxhrval = (HttpWebRequest)HttpWebRequest.Create(host + "/socket.io/?EIO=1&transport=polling&t=" + CurrentDate()+"-"+reqId++);
                 if (Proxy != null)
                     getxhrval.Proxy = Proxy;
                 getxhrval.Referer = host;
@@ -465,10 +472,14 @@ namespace JDCAPI
                         case "connect.sid": conid = cookievalue.Value; break;
                         case "__cfduid": id = cookievalue.Value; break;
                         case "hash": hash = cookievalue.Value; break;
+                        case "io": xhrval = cookievalue.Value; break;
                     }
 
                 }
-                xhrval = xhrString.Split(':')[0];
+                if (string.IsNullOrEmpty(xhrval))
+                {
+                    Connected=false;
+                }
                 xhrLevel = 0;
             }
             catch
@@ -492,7 +503,7 @@ namespace JDCAPI
         /// </summary>
         private bool getInitalHeaders()
         {
-            string sResponse = "";
+            
             request = (HttpWebRequest)HttpWebRequest.Create(host);
             if (Proxy != null)
                 request.Proxy = Proxy;
@@ -741,16 +752,22 @@ namespace JDCAPI
                     inconnection = false;
                     
                 }
+                /*if (!bGotLastResult && (DateTime.Now - Lastbet).TotalSeconds >= 7)
+                {
+                    Repeat();
+                }*/
+
                 Thread.Sleep(5);
                 
             }
             
         }
-        
+        int reqId = 0;
         int dcount = 0;
+        DateTime LastHeartbeat = DateTime.Now;
         private void GetInfo()
         {
-            var MaintainConnectoin = (HttpWebRequest)HttpWebRequest.Create(host+"/socket.io/1/xhr-polling/" + xhrval + "?t=" + CurrentDate());
+            var MaintainConnectoin = (HttpWebRequest)HttpWebRequest.Create(host+"/socket.io/?EIO=3&transport=polling&t="+ CurrentDate()+"-"+ (reqId++) +"&sid="+xhrval);
             if (Proxy != null)
                 MaintainConnectoin.Proxy = Proxy;
             MaintainConnectoin.UserAgent = "JDCAPI - " + UserAgent;
@@ -759,8 +776,19 @@ namespace JDCAPI
             MaintainConnectoin.Timeout = 10000;
             try
             {
+                if ((DateTime.Now - LastHeartbeat).TotalSeconds >= 30)
+                {
+                    LastHeartbeat = DateTime.Now;
+                    MaintainConnectoin.Method = "POST";
+                    MaintainConnectoin.ContentLength = 3;
+                    using (var writer = new StreamWriter(MaintainConnectoin.GetRequestStream()))
+                    {
+                        string writestring = "1:2";
+                        writer.Write(writestring);
+                    }
+                }
                 HttpWebResponse Response2 = (HttpWebResponse)MaintainConnectoin.GetResponse();
-
+                
                 string s2 = new StreamReader(Response2.GetResponseStream()).ReadToEnd();
                 foreach (Cookie cookievalue in Response2.Cookies)
                 {
@@ -805,16 +833,22 @@ namespace JDCAPI
             }
         }
 
+        private void StartPorcessing(object s2)
+        {
+            if (s2 is string)
+            StartPorcessing(s2 as string);
+        }
         private void StartPorcessing(string s2)
         {
             if (s2.Length > 5)
             {
                 List<string> returns = new List<string>();
-                if (s2[0] == '�')
+                /*if (s2[0] == '�')
                 {
                     while (s2.Length > 0)
                     {
                         if (s2[0] == '�')
+                            
                         {
                             int length = int.Parse(s2.Substring(1, s2.IndexOf('�', 1) - 1));
                             string tmp = s2.Substring(s2.IndexOf('�', 1) + 1, length);
@@ -830,14 +864,22 @@ namespace JDCAPI
                 else
                 {
                     
-                }
+                }*/
+                returns = s2.Split(new string[] { "�42" }, 100, StringSplitOptions.RemoveEmptyEntries).ToList<string>();
 
-                foreach (string s in returns)
+
+                foreach (string s1 in returns)
                 {
-                    ReceivedObject t = json.JsonDeserialize<ReceivedObject>(s);
-                    if (s.Length > 13)
+
+//                    ReceivedObject t = json.JsonDeserialize<ReceivedObject>(s);
+                    if (s1.Length > 13)
                     {
-                        string tmpstring = s.Substring(9, s.IndexOf("\"", 9) - 9);
+                        string s = s1;
+                        if (s1.IndexOf("\0") != -1)
+                        s=s.Substring(0, s1.IndexOf("\0"));
+                        string tmpstring = s.Substring(2, s.IndexOf("\"", 2) - 2);
+                        s = s.Substring( s.IndexOf(",")+1);
+                        s = s.Substring(0, s.Length - 1);
                         if (tmpstring.Contains("pong"))
                         {
                             if (OnPong != null)
@@ -847,7 +889,7 @@ namespace JDCAPI
                         }
                         if (tmpstring.Contains("result") && !tmpstring.Contains("old_results"))
                         {
-                            Result tmp =  t.args[0] as Result;
+                            //Result tmp =  t.args[0] as Result;
                             ProcessResult(s);
                         }
                         else if (tmpstring.Contains("init"))
@@ -918,6 +960,7 @@ namespace JDCAPI
                             try
                             {
                                 Various tmp = ProcessVarious(s);
+                                tmp.name = tmpstring;
                                 switch (tmp.name)
                                 {
                                     case "invest": Invest tmp2 = new Invest 
@@ -970,7 +1013,7 @@ namespace JDCAPI
                             {
                                 if (logging)
                                     writelog("Caught! " + E.Message);
-                                throw E;
+                                //throw E;
                             }
                         }
                     }
@@ -980,13 +1023,7 @@ namespace JDCAPI
 
         private void ProcessHistory(string JsonString)
         {
-            int start = JsonString.IndexOf("[") + 1;
-            int length = JsonString.IndexOf("]") - start;
-            start = JsonString.IndexOf('[') + 1;
-            length = JsonString.LastIndexOf(']') - start ;
-            JsonString = JsonString.Substring(start, length);
-            int val = JsonString.IndexOf(",");
-            JsonString = JsonString.Remove(val, 1).Insert(val, ":");
+           
             History tmp = json.JsonDeserialize<History>("{"+JsonString+"}");
             if (OnHistory != null)
                 OnHistory(tmp);
@@ -994,11 +1031,7 @@ namespace JDCAPI
 
         private void ProcessGaCode(string JsonString)
         {
-            int start = JsonString.IndexOf("[") + 1;
-            int length = JsonString.IndexOf("]") - start;
-            start = JsonString.IndexOf('[') + 1;
-            length = JsonString.LastIndexOf(']') - start + 1;
-            JsonString = JsonString.Substring(start, length);
+            
             GoogleAuthSettings tmp = json.JsonDeserialize<GoogleAuthSettings>(JsonString);
             if (OnGaCodeOk != null)
                 OnGaCodeOk(tmp);
@@ -1007,11 +1040,7 @@ namespace JDCAPI
 
         private void ProcessSetupGa(string JsonString)
         {
-            int start = JsonString.IndexOf("[") + 1;
-            int length = JsonString.IndexOf("]") - start;
-            start = JsonString.IndexOf('[') + 1;
-            length = JsonString.LastIndexOf(']') - start + 1;
-            JsonString = JsonString.Substring(start, length);
+            
             SetupGa tmp = json.JsonDeserialize<SetupGa>(JsonString);
             if (OnSetupGa != null)
                 OnSetupGa(tmp);
@@ -1019,11 +1048,7 @@ namespace JDCAPI
 
         private void ProcessGaInfo(string JsonString)
         {
-            int start = JsonString.IndexOf("[") + 1;
-            int length = JsonString.IndexOf("]") - start;
-            start = JsonString.IndexOf('[') + 1;
-            length = JsonString.LastIndexOf(']') - start + 1;
-            JsonString = JsonString.Substring(start, length);
+           
             GoogleAuthSettings tmp = json.JsonDeserialize<GoogleAuthSettings>(JsonString);
             if (OnGaInfo != null)
                 OnGaInfo(tmp);
@@ -1099,17 +1124,19 @@ namespace JDCAPI
         }
 
         #region processing socket.on results from getinfo
+        private void ProcessResult(object JsonString)
+        {
+            
+            //ProcessResult(JsonString as string);
+        }
 
         private void ProcessResult(string JsonString)
         {
-            int start = JsonString.IndexOf("[") + 1;
-            int length = JsonString.IndexOf("]") - start;
-            start = JsonString.IndexOf('[') + 1;
-            length = JsonString.LastIndexOf(']') - start + 1;
-            JsonString = JsonString.Substring(start, length);
+            
             Result tmp = json.JsonDeserialize<Result>(JsonString);
             if (tmp.bankroll != null)
             {
+                
                 Bankroll = double.Parse(tmp.bankroll, System.Globalization.CultureInfo.InvariantCulture);
                 MaxProfit = double.Parse(tmp.max_profit, System.Globalization.CultureInfo.InvariantCulture);
                 Investment = tmp.investment;
@@ -1119,6 +1146,7 @@ namespace JDCAPI
                 if (tmp.uid == uid)
                 {
                     this.Nonce = tmp.nonce;
+                    bGotLastResult = true;
                 }
                 if (tmp.balance == null)
                 {
@@ -1163,10 +1191,7 @@ namespace JDCAPI
 
         private void ProcessStake(string JsonString)
         {
-            int start = JsonString.IndexOf("{");
-            int length = JsonString.LastIndexOf("}") - start + 1;
-            JsonString = JsonString.Substring(start, length);
-            JsonString = JsonString.Replace(((char)011).ToString(), "");
+           
             StakeBase tmp = json.JsonDeserialize<StakeBase>(JsonString);
             this.Investment = tmp.args[0].investment;
             this.Invest_pft = tmp.args[0].invest_pft;
@@ -1177,11 +1202,9 @@ namespace JDCAPI
 
         private void ProcessChat(string JsonString)
         {
-            int start = JsonString.IndexOf("{");
-            int length = JsonString.LastIndexOf("}") - start + 1;
-             JsonString = JsonString.Substring(start, length);
-             JsonString = JsonString.Replace(((char)011).ToString(), "");
-             baseChat tmp = json.JsonDeserialize<baseChat>(JsonString);
+            
+             string[] tmps = json.JsonDeserialize<string[]>("["+JsonString+"]");
+            baseChat tmp = new baseChat{name="chat", args = tmps};
              if (!tmp.args[0].StartsWith("INFO:"))
              {
                  if (OnChat != null && !logginging)
@@ -1214,27 +1237,24 @@ namespace JDCAPI
 
         private void ProcessSetHash(string JsonString)
         {
-            int start = JsonString.IndexOf("{");
-            int length = JsonString.LastIndexOf("}") - start + 1;
-            string jsonstring = JsonString.Substring(start, length);
-            jsonstring = jsonstring.Replace(((char)011).ToString(), "");
-            Various tmp = json.JsonDeserialize<Various>(jsonstring);
+
+            string tmp = json.JsonDeserialize<string>(JsonString);
             bool found = false;
             foreach (Cookie c in request.CookieContainer.GetCookies(new Uri(host)))
             {
                 if (c.Name == "hash")
                 {
 
-                    c.Value = tmp.args[0].ToString();
+                    c.Value = tmp;
                     found = true;
                 }
             }
             if (!found)
             {
-                request.CookieContainer.Add(new Cookie("hash", tmp.args[0].ToString(), "/", ".just-dice.com"));
+                request.CookieContainer.Add(new Cookie("hash", tmp, "/", ".just-dice.com"));
 
             }
-            privatehash = tmp.args[0].ToString();
+            privatehash = tmp;
             gotinit = false;
             getxhrval();
             while (!gotinit)
@@ -1248,18 +1268,10 @@ namespace JDCAPI
         private void ProcessOldResults(string JsonString)
         {
             gotinit = true;
-            int start = JsonString.IndexOf("{");
-            int length = JsonString.LastIndexOf("}") - start + 1;
-            /*start = JsonString.IndexOf('[') + 1;
-            length = JsonString.LastIndexOf(']') - start + 1;*/
-            JsonString = JsonString.Substring(start, length);
-            start = JsonString.IndexOf('[');
-            JsonString = JsonString.Remove(start, 1);
-            length = JsonString.LastIndexOf(']');
-            JsonString = JsonString.Remove(length, 1);
+            
             try
             {
-                oldbets tmp = json.JsonDeserialize<oldbets>(JsonString);
+                oldbets tmp = new oldbets { name = "oldbets", args = json.JsonDeserialize<Bet[]>(JsonString)};
                 for (int i = 0; i < tmp.args.Length; i++)
                 {
                     if (OnOldBets != null && !logginging)
@@ -1282,15 +1294,8 @@ namespace JDCAPI
         private void ProcessInit(string JsonString)
         {
             
-            int start = JsonString.IndexOf("{");
-            int length = JsonString.LastIndexOf("}") - start + 1;
-           /* JsonString = JsonString.Remove(JsonString.IndexOf('['), 1);
-            JsonString = JsonString.Remove(JsonString.LastIndexOf(']'), 1);*/
+            
             gotinit = true;
-            JsonString = JsonString.Replace(":null", ":0");
-            start = JsonString.IndexOf('[') + 1;
-            length = JsonString.LastIndexOf(']') - start + 1;
-            JsonString = JsonString.Substring(start, length);
             init Initial = json.JsonDeserialize<init>(JsonString);
             Balance = double.Parse(Initial.balance, System.Globalization.CultureInfo.InvariantCulture);
             Bankroll = double.Parse(Initial.bankroll, System.Globalization.CultureInfo.InvariantCulture);
@@ -1325,13 +1330,21 @@ namespace JDCAPI
 
             this.ga = Initial.ga;
 
-            for (int i = 0; i < Initial.chat.Count-1; i += 2)
+            for (int i = 0; i < Initial.chat.Count-1; i += 1)
             {
-                Chat tmpChat = json.JsonDeserialize<initchat>(Initial.chat[i].ToString()).ConvertToChat(Initial.chat[i + 1].ToString());
-                if (OnOldChat != null && !logginging)
+                try
                 {
-                    OnOldChat(tmpChat);
+                    Chat tmpChat = json.JsonDeserialize<initchat>(Initial.chat[i].ToString()).ConvertToChat(Initial.chat[i + 1].ToString());
+                    if (OnOldChat != null && !logginging)
+                    {
+                        OnOldChat(tmpChat);
+                    }
                 }
+                catch
+                {
+
+                }
+                
             }
             if (OnInit != null)
                 OnInit(Initial);
@@ -1340,7 +1353,7 @@ namespace JDCAPI
 
         private Various ProcessVarious(string JsonString)
         {
-            try
+            /*try
             {
                 int length = JsonString.IndexOf("}");
                 JsonString = JsonString.Remove(length + 1);
@@ -1349,111 +1362,121 @@ namespace JDCAPI
             catch
             {
 
-            }
-            JsonString = JsonString.Replace(((char)011).ToString(), "");
-            Various tmp = json.JsonDeserialize<Various>(JsonString);
-            return tmp;
+            }*/
+            
+            System.Collections.ArrayList tmp = json.JsonDeserialize<System.Collections.ArrayList>("["+JsonString+"]");
+                         
+            return new Various { args = tmp};
 
         }
 
         //processing socket.on results from getinfo
         #endregion
-        
+          
 
         #region Emits
+        public void Repeat()
+        {
+            Lastbet = DateTime.Now;
+            Thread tDeposit = new Thread(new ParameterizedThreadStart(Emit));
+            tDeposit.Start("[\"repeat\",\"" + csrf + "\"]");
+        }
+
         public void ResetProfit()
         {
             Thread tDeposit = new Thread(new ParameterizedThreadStart(Emit));
-            tDeposit.Start("5:::{\"name\":\"reset_profit\",\"args\":[\"" + csrf + "\"]}");
+            tDeposit.Start("42[\"reset_profit\",\"" + csrf + "\"]");
         }
 
         public void Deposit()
         {
             Thread tDeposit = new Thread(new ParameterizedThreadStart(Emit));
-            tDeposit.Start("5:::{\"name\":\"deposit\",\"args\":[\"" + csrf + "\"]}");
+            tDeposit.Start("42[\"deposit\",\"" + csrf + "\"]");
         }
 
         public void Login(string Username, string Password, string GACode)
         {
             Thread tLogin = new Thread(new ParameterizedThreadStart(Emit));
-            tLogin.Start("5:::{\"name\":\"login\",\"args\":[\"" + csrf + "\",\"" + Username + "\",\"" +Password + "\",\"" + GACode + "\"]}");
+            tLogin.Start("42[\"login\",\"" + csrf + "\",\"" + Username + "\",\"" +Password + "\",\"" + GACode + "\"]");
         }
 
         public void Bet(double Chance, double Bet, bool Hi)
         {
+            Lastbet = DateTime.Now;
+            bGotLastResult = false;
             Thread tbet = new Thread(new ParameterizedThreadStart(Emit));
-            tbet.Start("5:::{\"name\":\"bet\",\"args\":[\"" + csrf + "\",{\"chance\":\"" + Chance.ToString("0.00000000") + "\",\"bet\":\"" + Bet.ToString("0.00000000") + "\",\"which\":\"" + ((Hi) ? "hi" : "lo") + "\"}]}");
+            tbet.Start("42[\"bet\",\"" + csrf + "\",{\"chance\":\"" + Chance.ToString("0.00000000") + "\",\"bet\":\"" + Bet.ToString("0.00000000") + "\",\"which\":\"" + ((Hi) ? "hi" : "lo") + "\"}]");
         }
 
         public void  Withdraw(string Address, double Amount, string Code)
         {
             Thread tWithdraw = new Thread(new ParameterizedThreadStart(Emit));
-            tWithdraw.Start(string.Format("5:::{{\"name\":\"withdraw\",\"args\":[\"{0}\",\"{1}\",\"{2}\",\"{3}\"]}}", csrf, Address, Amount, Code));
+            tWithdraw.Start(string.Format("42[\"withdraw\",\"{0}\",\"{1}\",\"{2}\",\"{3}\"]", csrf, Address, Amount, Code));
         }
 
         public void Randomize()
         {
             Thread tRandom = new Thread(new ParameterizedThreadStart(Emit));
-            tRandom.Start(string.Format("5:::{{\"name\":\"random\",\"args\":[\"{0}\"]}}", csrf));
+            tRandom.Start(string.Format("42[\"random\",\"{0}\"]", csrf));
         }
 
         public void SetName(string NickName)
         {
             Thread tName = new Thread(new ParameterizedThreadStart(Emit));
-            tName.Start(string.Format("5:::{{\"name\":\"name\",\"args\":[\"{0}\",\"{1}\"]}}", csrf, NickName));
+            tName.Start(string.Format("42[\"name\",\"{0}\",\"{1}\"]", csrf, NickName));
         }
 
         public void Invest(double Amount, string Code)
         {
             Thread tInvest = new Thread(new ParameterizedThreadStart(Emit));
-            tInvest.Start(string.Format("5:::{{\"name\":\"invest\",\"args\":[\"{0}\",\"{1}\",\"{2}\"]}}", csrf, Amount, Code));
+            tInvest.Start(string.Format("42[\"invest\",\"{0}\",\"{1}\",\"{2}\"]", csrf, Amount, Code));
         }
 
         public void Divest(double Amount, string Code)
         {
             Thread tDivest = new Thread(new ParameterizedThreadStart(Emit));
-            tDivest.Start(string.Format("5:::{{\"name\":\"divest\",\"args\":[\"{0}\",\"{1}\",\"{2}\"]}}", csrf, Amount, Code));
+            tDivest.Start(string.Format("42[\"divest\",\"{0}\",\"{1}\",\"{2}\"]", csrf, Amount, Code));
         }
         public void InvestAll(string Code)
         {
             Thread tInvest = new Thread(new ParameterizedThreadStart(Emit));
-            tInvest.Start(string.Format("5:::{{\"name\":\"invest\",\"args\":[\"{0}\",\"all\",\"{1}\"]}}", csrf,  Code));
+            tInvest.Start(string.Format("42[\"invest\",\"{0}\",\"all\",\"{1}\"]", csrf,  Code));
         }
 
         public void DivestAll(string Code)
         {
             Thread tDivest = new Thread(new ParameterizedThreadStart(Emit));
-            tDivest.Start(string.Format("5:::{{\"name\":\"divest\",\"args\":[\"{0}\",\"all\",\"{1}\"]}}", csrf,  Code));
+            tDivest.Start(string.Format("42[\"divest\",\"{0}\",\"all\",\"{1}\"]", csrf,  Code));
         }
 
         public void SetupAccount(string Username, string Password)
         {
             Thread tSetupAccount = new Thread(new ParameterizedThreadStart(Emit));
-            tSetupAccount.Start(string.Format("5:::{{\"name\":\"setup_account\",\"args\":[\"{0}\",\"{1}\",\"{2}\"]}}", csrf, Username, Password));
+            tSetupAccount.Start(string.Format("42[\"setup_account\",\"{0}\",\"{1}\",\"{2}\"]", csrf, Username, Password));
         }
 
         public void SetupGaCode(string Code)
         {
             Thread tSetupGaCode = new Thread(new ParameterizedThreadStart(Emit));
-            tSetupGaCode.Start(string.Format("5:::{{\"name\":\"setup_ga_code\",\"args\":[\"{0}\",\"{1}\"]}}", csrf, Code));
+            tSetupGaCode.Start(string.Format("42[\"setup_ga_code\",\"{0}\",\"{1}\"]", csrf, Code));
         }
 
         public void EditGa()
         {
             Thread tSetupGaCode = new Thread(new ParameterizedThreadStart(Emit));
-            tSetupGaCode.Start(string.Format("5:::{{\"name\":\"edit_ga\",\"args\":[\"{0}\"]}}", csrf));
+            tSetupGaCode.Start(string.Format("42[\"edit_ga\",\"{0}\"]", csrf));
         }
 
         public void DoneEditGa(string Code, GAFlags Flags)
         {
             Thread tSetupGaCode = new Thread(new ParameterizedThreadStart(Emit));
-            tSetupGaCode.Start(string.Format("5:::{{\"name\":\"done_edit_ga\",\"args\":[\"{0}\",\"{1}\",{2}]}}", csrf, Code, json.JsonSerializer<GAFlags>(Flags).Replace("_"," ")));
+            tSetupGaCode.Start(string.Format("42[\"done_edit_ga\",\"{0}\",\"{1}\",{2}]", csrf, Code, json.JsonSerializer<GAFlags>(Flags).Replace("_"," ")));
         }
 
         public void DisableGa(string Code)
         {
             Thread tSetupGaCode = new Thread(new ParameterizedThreadStart(Emit));
-            tSetupGaCode.Start(string.Format("5:::{{\"name\":\"disable_ga\",\"args\":[\"{0}\",\"{1}\"]}}", csrf, Code));
+            tSetupGaCode.Start(string.Format("42[\"disable_ga\",\"{0}\",\"{1}\"]", csrf, Code));
         }
         private string RandomSeed()
         {
@@ -1469,45 +1492,45 @@ namespace JDCAPI
         {
             Thread tSeed = new Thread(new ParameterizedThreadStart(Emit));
             string NewSeed = RandomSeed();
-            string tmp = string.Format("5:::{{\"name\":\"seed\",\"args\":[\"{0}\",\"{1}\",true]}}", csrf, RandomSeed());
+            string tmp = string.Format("42[\"seed\",\"{0}\",\"{1}\",true]", csrf, RandomSeed());
             tSeed.Start(tmp);
         }
 
         public void Seed(string Seed)
         {
             Thread tSeed = new Thread(new ParameterizedThreadStart(Emit));
-            tSeed.Start(string.Format("5:::{{\"name\":\"seed\",\"args\":[\"{0}\",\"{1}\",true]}}", csrf, Seed));
+            tSeed.Start(string.Format("42[\"seed\",\"{0}\",\"{1}\",true]", csrf, Seed));
         }
 
         public void History(HistoryType Type)
         {
             Thread tSeed = new Thread(new ParameterizedThreadStart(Emit));
-            tSeed.Start(string.Format("5:::{{\"name\":\"history\",\"args\":[\"{0}\",\"{1}\"]}}", csrf, Type.ToString()));
+            tSeed.Start(string.Format("42[\"history\",\"{0}\",\"{1}\"]", csrf, Type.ToString()));
         }
 
         public void ChangePassword(string CurrentPassword, string Password)
         {
             Thread tPassword = new Thread(new ParameterizedThreadStart(Emit));
-            tPassword.Start(string.Format("5:::{{\"name\":\"change_password\",\"args\":[\"{0}\",\"{1}\",\"{2}\"]}}",csrf, CurrentPassword, Password));
+            tPassword.Start(string.Format("42[\"change_password\",\"{0}\",\"{1}\",\"{2}\"]",csrf, CurrentPassword, Password));
         }
 
         
         public void Chat(string Message)
         {
             Thread tbet = new Thread(new ParameterizedThreadStart(Emit));
-            tbet.Start("5:::{\"name\":\"chat\",\"args\":[\"" + csrf + "\",\""+Message+"\"]}");
+            tbet.Start("42[\"chat\",\"" + csrf + "\",\"" + Message + "\"]");
         }
 
         public void Roll(long Betid)
         {
             Thread tRoll = new Thread(new ParameterizedThreadStart(Emit));
-            tRoll.Start(string.Format("5:::{{\"name\":\"roll\",\"args\":[\"{0}\",\"{1}\"]}}", csrf,Betid));
+            tRoll.Start(string.Format("42[\"roll\",\"{0}\",\"{1}\"]", csrf,Betid));
         }
 
         public void Ping()
         {
             Thread tRoll = new Thread(new ParameterizedThreadStart(Emit));
-            tRoll.Start(string.Format("5:::{{\"name\":\"ping\",\"args\":[\"{0}\",\"ping\"]}}", csrf));
+            tRoll.Start(string.Format("42[\"ping\",\"{0}\",\"ping\"]", csrf));
         }
 
         public void SetSettings(SettingsType_Numeric Type, decimal Value)
@@ -1525,7 +1548,7 @@ namespace JDCAPI
                 
             }
             Thread tSettings = new Thread(new ParameterizedThreadStart(Emit));
-            tSettings.Start(string.Format("5:::{{\"name\":\"setting\",\"args\":[\"{0}\",\"float\",\"{1}\",\"{2}\"]}}", csrf, Message, Value));
+            tSettings.Start(string.Format("42[\"setting\",\"{0}\",\"float\",\"{1}\",\"{2}\"]", csrf, Message, Value));
         }
         public void SetSettings(SettingsType_String Type, string Value)
         {
@@ -1541,7 +1564,7 @@ namespace JDCAPI
             }
 
             Thread tSettings = new Thread(new ParameterizedThreadStart(Emit));
-            tSettings.Start(string.Format("5:::{{\"name\":\"setting\",\"args\":[\"{0}\",\"{3}\",\"{1}\",\"{2}\"]}}", csrf, Message, Value, type));
+            tSettings.Start(string.Format("42[\"setting\",\"{0}\",\"{3}\",\"{1}\",\"{2}\"]", csrf, Message, Value, type));
         }
         public void SetSettings( SettingsType_Boolean Type, bool Value)
         {
@@ -1556,7 +1579,7 @@ namespace JDCAPI
                 case SettingsType_Boolean.Shortcuts: Message = "shortcuts"; this.Settings.shortcuts = Value; break;
             }
             Thread tSettings = new Thread(new ParameterizedThreadStart(Emit));
-            tSettings.Start(string.Format("5:::{{\"name\":\"setting\",\"args\":[\"{0}\",\"bool\",\"{1}\",\"{2}\"]}}", csrf, Message, Value?"1":"0"));
+            tSettings.Start(string.Format("42[\"setting\",\"{0}\",\"bool\",\"{1}\",\"{2}\"]", csrf, Message, Value?"1":"0"));
         }
         int emitlevel = 0;
         private void Emit(object Message)
@@ -1564,7 +1587,9 @@ namespace JDCAPI
             //inconnection = true;
             try
             {
-                var hwrEmit = (HttpWebRequest)HttpWebRequest.Create(host + "/socket.io/1/xhr-polling/" + xhrval + "?t=" + CurrentDate());
+                string tmpstr = Message as string;
+                tmpstr = tmpstr.Length +":"+ tmpstr;
+                var hwrEmit = (HttpWebRequest)HttpWebRequest.Create(host + "/socket.io/?EIO=3&transport=polling&t=" + CurrentDate()+"-"+(reqId++)+ "&sid=" + xhrval);
                 if (Proxy != null)
                     hwrEmit.Proxy = Proxy;
                 if (logging)
@@ -1573,22 +1598,34 @@ namespace JDCAPI
                 hwrEmit.UserAgent = "JDCAPI - " + UserAgent;
                 hwrEmit.Referer = host;
                 hwrEmit.Method = "POST";
+                hwrEmit.ContentLength = tmpstr.Length;
                 using (var writer = new StreamWriter(hwrEmit.GetRequestStream()))
                 {
-                    string writestring = Message as string;
+                    string writestring = tmpstr;
                     writer.Write(writestring);
                 }
-
-                HttpWebResponse EmitResponse = (HttpWebResponse)hwrEmit.GetResponse();
-                string sEmitResponse = new StreamReader(EmitResponse.GetResponseStream()).ReadToEnd();
-                if (logging)
-                    writelog(sEmitResponse);
-                StartPorcessing(sEmitResponse);
-                emitlevel = 0;
+                string sEmitResponse = "";
+                try
+                {
+                    HttpWebResponse EmitResponse = (HttpWebResponse)hwrEmit.GetResponse();
+                    sEmitResponse = new StreamReader(EmitResponse.GetResponseStream()).ReadToEnd();
+                }
+                catch
+                {
+                    reqId--;
+                }
+                if (!string.IsNullOrEmpty(sEmitResponse))
+                {
+                    if (logging)
+                        writelog(sEmitResponse);
+                    StartPorcessing(sEmitResponse);
+                    emitlevel = 0;
+                }
                 //return false;
             }
             catch (Exception e)
             {
+                reqId--;
                 if (logging)
                     writelog("Failed emit! " + e.Message);
                 if (emitlevel++<5)
