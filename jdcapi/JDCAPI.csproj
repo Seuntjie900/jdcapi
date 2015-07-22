@@ -76,6 +76,9 @@
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
+    <Reference Include="WebSocket4Net">
+      <HintPath>..\packages\WebSocket4Net.0.12\lib\net40\WebSocket4Net.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Bet.cs" />
@@ -92,6 +95,9 @@
     <Compile Include="ScriptEngine.cs" />
     <Compile Include="stake.cs" />
     <Compile Include="Various.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

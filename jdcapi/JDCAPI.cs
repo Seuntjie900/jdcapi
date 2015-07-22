@@ -7,14 +7,15 @@ using System.Web;
 using System.IO;
 using System.Threading;
 using System.Net;
-
+using WebSocket4Net;
+using System.IO.Compression;
 namespace JDCAPI
 {
     public class jdInstance: IDisposable
     {
         WebProxy Proxy;
         HttpWebRequest request;
-        
+        WebSocket4Net.WebSocket Client;
         string conid = "";
         string id = "";
         string csrf = "";
@@ -321,7 +322,7 @@ namespace JDCAPI
                     _Connected = false;
                 GetInfo();
             }
-            if (_Connected)
+            /*if (_Connected)
             {
                 active = true;
                 if (poll != null && poll.IsAlive)
@@ -350,8 +351,87 @@ namespace JDCAPI
                 }
                 Connected = false;
                 return Connected;
+            }*/
+            if (_Connected)
+            {
+            List<KeyValuePair<string, string>> cookies = new List<KeyValuePair<string, string>>();
+            List<KeyValuePair<string, string>> headers = new List<KeyValuePair<string, string>>();
+            request.CookieContainer.Add(new Cookie("io", xhrval, "/", "just-dice.com"));
+            foreach (Cookie c in request.CookieContainer.GetCookies(new Uri("https://just-dice.com")))
+            {
+                cookies.Add(new KeyValuePair<string, string>(c.Name, c.Value));
+            }
+            headers.Add(new KeyValuePair<string, string>("origin","https://just-dice.com"));            
+            headers.Add(new KeyValuePair<string, string>("upgrade", "websocket"));
+            headers.Add(new KeyValuePair<string, string>("connection", "upgrade"));            
+            headers.Add(new KeyValuePair<string, string>("user-agent", "JDCAPI - "+UserAgent));            
+            headers.Add(new KeyValuePair<string, string>("accept-language", "en-GB,en-US;q=0.8,en;q=0.6"));
+            Client = new WebSocket("wss://just-dice.com:443/socket.io/?EIO=3&transport=websocket&sid="+xhrval, "", cookies, headers);
+            Client.ReceiveBufferSize = 1024;            
+            Client.Opened += Client_Opened;
+            Client.Error += Client_Error;
+            Client.Closed += Client_Closed;
+            Client.MessageReceived += Client_MessageReceived;
+            Client.Open();
+            while (Client.State == WebSocketState.Connecting)
+            {
+                Thread.Sleep(100);
+            }
+            if (Client.State == WebSocketState.Open)
+            {
+                Client.Send("2probe");
+            }
+            return Client.State == WebSocketState.Connecting;
+        }
+            else
+            {
+                Connected = false;
+                if (this.LoginEnd != null)
+                {
+                    this.LoginEnd(Connected);
+                }
+                return Connected;
+            }
+        }
+
+        void Client_DataReceived(object sender, DataReceivedEventArgs e)
+        {
+            //throw new NotImplementedException();
+        }
+        bool first = false;
+        void Client_MessageReceived(object sender, MessageReceivedEventArgs e)
+        {
+            if (logging)
+                writelog(e.Message);
+            
+            if (!first)
+            {
+                Client.Send("5");
+                first = !first;
+            
+            }else
+            {
+                StartPorcessing(e.Message);
             }
             
+            
+            //throw new NotImplementedException();
+        }
+
+
+        void Client_Closed(object sender, EventArgs e)
+        {
+            //throw new NotImplementedException();
+        }
+
+        void Client_Error(object sender, SuperSocket.ClientEngine.ErrorEventArgs e)
+        {
+            //throw new NotImplementedException();
+        }
+
+        void Client_Opened(object sender, EventArgs e)
+        {
+            //throw new NotImplementedException();
         }
 
       
@@ -423,7 +503,7 @@ namespace JDCAPI
                     _Connected = false;
                 GetInfo();
             }
-            if (_Connected)
+            /*if (_Connected)
             {
                 active = true;
                 Thread poll = new Thread(new ThreadStart(pollingLoop));
@@ -434,6 +514,46 @@ namespace JDCAPI
                     this.LoginEnd(Connected);
                 }
                 return Connected;
+            }
+            else
+            {
+                Connected = false;
+                if (this.LoginEnd != null)
+                {
+                    this.LoginEnd(Connected);
+                }
+                return Connected;
+            }*/
+            if (_Connected)
+            {
+                List<KeyValuePair<string, string>> cookies = new List<KeyValuePair<string, string>>();
+                List<KeyValuePair<string, string>> headers = new List<KeyValuePair<string, string>>();
+                request.CookieContainer.Add(new Cookie("io", xhrval, "/", "just-dice.com"));
+                foreach (Cookie c in request.CookieContainer.GetCookies(new Uri("https://just-dice.com")))
+                {
+                    cookies.Add(new KeyValuePair<string, string>(c.Name, c.Value));
+                }
+                headers.Add(new KeyValuePair<string, string>("origin", "https://just-dice.com"));
+                headers.Add(new KeyValuePair<string, string>("upgrade", "websocket"));
+                headers.Add(new KeyValuePair<string, string>("connection", "upgrade"));
+                headers.Add(new KeyValuePair<string, string>("user-agent", "JDCAPI - " + UserAgent));
+                headers.Add(new KeyValuePair<string, string>("accept-language", "en-GB,en-US;q=0.8,en;q=0.6"));
+                Client = new WebSocket("wss://just-dice.com:443/socket.io/?EIO=3&transport=websocket&sid=" + xhrval, "", cookies, headers);
+                Client.ReceiveBufferSize = 1024;
+                Client.Opened += Client_Opened;
+                Client.Error += Client_Error;
+                Client.Closed += Client_Closed;
+                Client.MessageReceived += Client_MessageReceived;
+                Client.Open();
+                while (Client.State == WebSocketState.Connecting)
+                {
+                    Thread.Sleep(100);
+                }
+                if (Client.State == WebSocketState.Open)
+                {
+                    Client.Send("2probe");
+                }
+                return Client.State == WebSocketState.Connecting;
             }
             else
             {
@@ -875,10 +995,18 @@ namespace JDCAPI
                     if (s1.Length > 13)
                     {
                         string s = s1;
+                        string tmpstring ="";
                         if (s1.IndexOf("\0") != -1)
-                        s=s.Substring(0, s1.IndexOf("\0"));
-                        string tmpstring = s.Substring(2, s.IndexOf("\"", 2) - 2);
-                        s = s.Substring( s.IndexOf(",")+1);
+                            s = s.Substring(0, s1.IndexOf("\0"));
+                        if (!s.StartsWith("42"))
+                        {
+                            tmpstring= s.Substring(2, s.IndexOf("\"", 2) - 2);
+                        }
+                        else
+                        {
+                            tmpstring = s.Substring(4, s.IndexOf("\"", 4) - 4);
+                        }
+                        s = s.Substring(s.IndexOf(",") + 1);
                         s = s.Substring(0, s.Length - 1);
                         if (tmpstring.Contains("pong"))
                         {
@@ -940,7 +1068,7 @@ namespace JDCAPI
                         }
                         else if (tmpstring.Contains("ga_done") && !logginging)
                         {
-                            if ( onGaDone != null)
+                            if (onGaDone != null)
                                 onGaDone();
                         }
                         else if (tmpstring.Contains("ga_code_done") && !logginging)
@@ -963,14 +1091,14 @@ namespace JDCAPI
                                 tmp.name = tmpstring;
                                 switch (tmp.name)
                                 {
-                                    case "invest": Invest tmp2 = new Invest 
+                                    case "invest": Invest tmp2 = new Invest
                                     {
                                         Amount = decimal.Parse(tmp.args[0].ToString(), System.Globalization.CultureInfo.InvariantCulture),
                                         Percentage = decimal.Parse(tmp.args[1].ToString(), System.Globalization.CultureInfo.InvariantCulture),
                                         Profit = decimal.Parse(tmp.args[2].ToString(), System.Globalization.CultureInfo.InvariantCulture),
                                         Offsite = decimal.Parse(tmp.args[3].ToString(), System.Globalization.CultureInfo.InvariantCulture),
 
-                                    }; this.Investment = tmp2.Amount; this.Percent = tmp2.Percentage; this.Invest_pft=tmp2.Profit; this.Offsite=tmp2.Offsite; if (onInvest != null && !logginging) onInvest(tmp2 ); break;
+                                    }; this.Investment = tmp2.Amount; this.Percent = tmp2.Percentage; this.Invest_pft = tmp2.Profit; this.Offsite = tmp2.Offsite; if (onInvest != null && !logginging) onInvest(tmp2); break;
                                     case "invest_error": if (OnInvestError != null && !logginging) OnInvestError(tmp.args[0].ToString()); break;
                                     case "divest_error": if (OnDivestError != null && !logginging) OnDivestError(tmp.args[0].ToString()); break;
                                     case "offset": this.Offset = decimal.Parse(tmp.args[0].ToString(), System.Globalization.CultureInfo.InvariantCulture); if (this.OnOffset != null) OnOffset(this.Offset); break;
@@ -989,7 +1117,7 @@ namespace JDCAPI
                                     //case "details": if (OnDetails != null && !logginging) OnDetails(tmp); break;
                                     case "max_profit": this.MaxProfit = double.Parse(tmp.args[0].ToString(), System.Globalization.CultureInfo.InvariantCulture); if (OnMaxProfit != null && !logginging) OnMaxProfit(decimal.Parse(tmp.args[0].ToString(), System.Globalization.CultureInfo.InvariantCulture)); break;
                                     case "new_client_seed": this.shash = tmp.args[0].ToString(); if (OnNewClientSeed != null && !logginging) OnNewClientSeed(
-                                        new SeedInfo 
+                                        new SeedInfo
                                         {
                                             OldServerSeed = tmp.args[0].ToString(),
                                             OldServerHash = tmp.args[1].ToString(),
@@ -998,10 +1126,10 @@ namespace JDCAPI
                                             NewServerHash = tmp.args[4].ToString()
                                         }
                                         ); break;
-                                    case "address": if (OnAddress != null && !logginging) OnAddress(new Address 
+                                    case "address": if (OnAddress != null && !logginging) OnAddress(new Address
                                     {
                                         DepositAddress = tmp.args[0].ToString(),
-                                        ImageHTML= tmp.args[0].ToString(),
+                                        ImageHTML = tmp.args[0].ToString(),
                                         Note = tmp.args[0].ToString(),
                                     }
                                     ); break;
@@ -1240,14 +1368,15 @@ namespace JDCAPI
 
             string tmp = json.JsonDeserialize<string>(JsonString);
             bool found = false;
+            
             foreach (Cookie c in request.CookieContainer.GetCookies(new Uri(host)))
             {
                 if (c.Name == "hash")
                 {
-
                     c.Value = tmp;
                     found = true;
                 }
+                
             }
             if (!found)
             {
@@ -1257,11 +1386,57 @@ namespace JDCAPI
             privatehash = tmp;
             gotinit = false;
             getxhrval();
+            found = false;
+            foreach (Cookie c in request.CookieContainer.GetCookies(new Uri(host)))
+            {
+                if (c.Name == "io")
+                {
+                    c.Value = xhrval;
+                    found = true;
+                }
+
+            }
+            if (!found)
+            {
+                request.CookieContainer.Add(new Cookie("io", xhrval, "/", "just-dice.com"));
+
+            }
+            Client.Close();
             while (!gotinit)
             {
                 GetInfo();
             }
-
+            List<KeyValuePair<string, string>> cookies = new List<KeyValuePair<string, string>>();
+            List<KeyValuePair<string, string>> headers = new List<KeyValuePair<string, string>>();
+            
+            foreach (Cookie c in request.CookieContainer.GetCookies(new Uri("https://just-dice.com")))
+            {
+                cookies.Add(new KeyValuePair<string, string>(c.Name, c.Value));
+            }
+            headers.Add(new KeyValuePair<string, string>("origin", "https://just-dice.com"));
+            headers.Add(new KeyValuePair<string, string>("upgrade", "websocket"));
+            headers.Add(new KeyValuePair<string, string>("connection", "upgrade"));
+            headers.Add(new KeyValuePair<string, string>("user-agent", "JDCAPI - " + UserAgent));
+            headers.Add(new KeyValuePair<string, string>("accept-language", "en-GB,en-US;q=0.8,en;q=0.6"));
+                
+            Client = new WebSocket("wss://just-dice.com:443/socket.io/?EIO=3&transport=websocket&sid=" + xhrval, "", cookies, headers);
+            Client.ReceiveBufferSize = 1024;
+            Client.Opened += Client_Opened;
+            Client.Error += Client_Error;
+            Client.Closed += Client_Closed;
+            Client.MessageReceived += Client_MessageReceived;
+            Client.Open();
+            while (Client.State == WebSocketState.Connecting)
+            {
+                Thread.Sleep(100);
+            }
+            if (Client.State == WebSocketState.Open)
+            {
+                first = false;
+                Client.Send("2probe");
+            }
+            
+            
         }
 
         
@@ -1584,8 +1759,9 @@ namespace JDCAPI
         int emitlevel = 0;
         private void Emit(object Message)
         {
+            Client.Send(Message as string);
             //inconnection = true;
-            try
+            /*try
             {
                 string tmpstr = Message as string;
                 tmpstr = tmpstr.Length +":"+ tmpstr;
@@ -1631,7 +1807,7 @@ namespace JDCAPI
                 if (emitlevel++<5)
                     Emit(Message);
                 //return true;
-            }
+            }*/
             //inconnection = false;
         }
 

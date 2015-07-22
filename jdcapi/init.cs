@@ -67,12 +67,12 @@ namespace JDCAPI
         //settings":{"btcaddr":"1M1zUqZUZg6AH4KQdq9AUoouQgWHdQzySd","watch_player":null,"roll_delay":null,"autoinvest":1,"chat_min_risk":5,"chat_min_change":5,"min_risk":1,"chat_watch_player":null,"min_change":1,"max_double":null,"allbetsme":1,"mutechat":0,"shortcuts":1,"chatstake":0,"alarm":0}
         public string btcaddr { get; set; }
         public string watch_player { get; set; }
-        public double roll_delay {get; set; }
+        public double roll_delay { get; set; }
         public bool autoinvest { get; set; }
         public double chat_min_risk { get; set; }
         public double chat_min_change { get; set; }
-       public double min_risk { get; set; }
-       public string chat_watch_player { get; set; }
+        public double min_risk { get; set; }
+        public string chat_watch_player { get; set; }
         public double min_change { get; set; }
         public double max_double { get; set; }
         public bool allbetsme { get; set; }
