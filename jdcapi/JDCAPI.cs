@@ -1504,7 +1504,7 @@ namespace JDCAPI
             Wagered = decimal.Parse(Initial.wagered, System.Globalization.CultureInfo.InvariantCulture);
 
             this.ga = Initial.ga;
-
+            if (Initial.chat != null)
             for (int i = 0; i < Initial.chat.Count-1; i += 1)
             {
                 try
