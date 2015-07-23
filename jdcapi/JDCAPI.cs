@@ -366,6 +366,7 @@ namespace JDCAPI
             headers.Add(new KeyValuePair<string, string>("connection", "upgrade"));            
             headers.Add(new KeyValuePair<string, string>("user-agent", "JDCAPI - "+UserAgent));            
             headers.Add(new KeyValuePair<string, string>("accept-language", "en-GB,en-US;q=0.8,en;q=0.6"));
+            //headers.Add(new KeyValuePair<string, string>("Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits; server_no_context_takeover"));
             Client = new WebSocket("wss://just-dice.com:443/socket.io/?EIO=3&transport=websocket&sid="+xhrval, "", cookies, headers);
             Client.ReceiveBufferSize = 1024;            
             Client.Opened += Client_Opened;
@@ -381,7 +382,23 @@ namespace JDCAPI
             {
                 Client.Send("2probe");
             }
-            return Client.State == WebSocketState.Connecting;
+            active = true;
+            if (poll != null && poll.IsAlive)
+            {
+                active = false;
+                poll.Abort();
+            }
+            active = true;
+
+            poll = new Thread(new ThreadStart(pollingLoop));
+            poll.Start();
+            Connected = Client.State == WebSocketState.Open; 
+                if (this.LoginEnd != null)
+            {
+                this.LoginEnd(Connected);
+            }
+            return Connected;
+            
         }
             else
             {
@@ -401,6 +418,32 @@ namespace JDCAPI
         bool first = false;
         void Client_MessageReceived(object sender, MessageReceivedEventArgs e)
         {
+            /*string s = "";
+            try
+            {
+                byte[] Bytes = System.Text.Encoding.UTF8.GetBytes(e.Message);
+                Array.Resize<byte>(ref Bytes, Bytes.Length -2);
+                //Bytes[Bytes.Length - 4] = (byte)(0x00);
+                /*Bytes[Bytes.Length - 3] = (byte)(0x00);
+                Bytes[Bytes.Length - 2] = (byte)(0xff);
+                Bytes[Bytes.Length - 1] = (byte)(0xff);*/
+            /*
+                using (MemoryStream str = new MemoryStream(Bytes))
+                {
+                    //str.ReadByte(); str.ReadByte();
+                    using (DeflateStream decompressionStream = new DeflateStream(str, CompressionMode.Decompress))
+                    {
+                        using (StreamReader sr = new StreamReader(decompressionStream))
+                        {
+                            s = sr.ReadToEnd();
+                        }
+                    }
+                }
+            }
+            catch
+            {
+
+            }*/
             if (logging)
                 writelog(e.Message);
             
@@ -409,7 +452,8 @@ namespace JDCAPI
                 Client.Send("5");
                 first = !first;
             
-            }else
+            }
+            else
             {
                 StartPorcessing(e.Message);
             }
@@ -553,7 +597,7 @@ namespace JDCAPI
                 {
                     Client.Send("2probe");
                 }
-                return Client.State == WebSocketState.Connecting;
+                return Client.State == WebSocketState.Open;
             }
             else
             {
@@ -864,6 +908,19 @@ namespace JDCAPI
                         Thread trecon = new Thread(new ThreadStart(Reconnect));
                         trecon.Start();
                     }
+                }
+                bool poll = true;
+                if (Client!=null)
+                {
+                    if (Client.State == WebSocketState.Open)
+                    {
+                        if ((DateTime.Now - LastHeartbeat).TotalSeconds >= 30)
+                        {
+                            LastHeartbeat = DateTime.Now;
+                            Client.Send("2");
+                        }
+                    }
+                    poll = Client.State != WebSocketState.Open;
                 }
                 if (!inconnection)
                 {
@@ -1319,13 +1376,13 @@ namespace JDCAPI
 
         private void ProcessStake(string JsonString)
         {
-           
-            StakeBase tmp = json.JsonDeserialize<StakeBase>(JsonString);
-            this.Investment = tmp.args[0].investment;
-            this.Invest_pft = tmp.args[0].invest_pft;
-            this.stake_profit = tmp.args[0].stake_pft;
+
+            Stake tmp = json.JsonDeserialize<Stake>(JsonString);
+            this.Investment = tmp.investment;
+            this.Invest_pft = tmp.invest_pft;
+            this.stake_profit = tmp.stake_pft;
             if (OnStake != null)
-                OnStake(tmp.args[0]);
+                OnStake(tmp);
         }
 
         private void ProcessChat(string JsonString)
