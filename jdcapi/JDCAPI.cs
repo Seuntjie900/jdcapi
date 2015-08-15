@@ -305,7 +305,7 @@ namespace JDCAPI
 
         }
 
-        
+        bool SocketConnected = false;
         private bool IntConnect(bool DogeDice)
         {
             xhrval = "";
@@ -382,22 +382,35 @@ namespace JDCAPI
                 if (Client.State == WebSocketState.Open)
                 {
                     Client.Send("2probe");
-                }
-                active = true;
-                if (poll != null && poll.IsAlive)
-                {
-                    active = false;
-                    poll.Abort();
-                }
-                active = true;
+                    active = true;
+                    if (poll != null && poll.IsAlive)
+                    {
+                        active = false;
+                        poll.Abort();
+                    }
+                    while (!SocketConnected && Client.State == WebSocketState.Open)
+                    {
+                        Thread.Sleep(100);
+                    }
 
-                poll = new Thread(new ThreadStart(pollingLoop));
-                poll.Start();
-                Connected = Client.State == WebSocketState.Open;
-                if (this.LoginEnd != null)
-                {
-                    this.LoginEnd(Connected);
+                    poll = new Thread(new ThreadStart(pollingLoop));
+                    poll.Start();
+                    Connected = Client.State == WebSocketState.Open;
+                    if (this.LoginEnd != null)
+                    {
+                        this.LoginEnd(Connected);
+                    }
                 }
+                else
+                {
+                    _Connected = false;
+                    Connected = false;
+                    if (this.LoginEnd != null)
+                    {
+                        this.LoginEnd(Connected);
+                    }
+                }
+                
                 return Connected;
             
         }
@@ -481,10 +494,10 @@ namespace JDCAPI
 
             if (e.Message == "3probe")
             {
-                Thread.Sleep(1510);
+                //Thread.Sleep(1510);
                 Client.Send("5");
                 first = !first;
-
+                SocketConnected = true;
             }
             else
             {
@@ -499,12 +512,14 @@ namespace JDCAPI
 
         void Client_Closed(object sender, EventArgs e)
         {
-            //throw new NotImplementedException();
+            this.Connected = false;
+            SocketConnected = false;
         }
 
         void Client_Error(object sender, SuperSocket.ClientEngine.ErrorEventArgs e)
         {
-            //throw new NotImplementedException();
+            this.Connected = false;
+            SocketConnected = false;
         }
 
         void Client_Opened(object sender, EventArgs e)
@@ -632,6 +647,10 @@ namespace JDCAPI
                 if (Client.State == WebSocketState.Open)
                 {
                     Client.Send("2probe");
+                }
+                while (!SocketConnected && Client.State == WebSocketState.Open)
+                {
+                    Thread.Sleep(100);
                 }
                 active = true;
                 if (poll != null && poll.IsAlive)
@@ -1574,7 +1593,11 @@ namespace JDCAPI
                 {
                     Client.Send("2probe");
                 }
-                active = true;
+            while (!SocketConnected && Client.State == WebSocketState.Open)
+            {
+                Thread.Sleep(100);
+            }
+            active = true;
                 if (poll != null && poll.IsAlive)
                 {
                     active = false;
