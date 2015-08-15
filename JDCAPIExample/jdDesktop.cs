@@ -72,6 +72,7 @@ namespace JDCAPIExample
             JD.OnHistory += JD_OnHistory;
             JD.OnOldBets += JD_OnOldBets;
             JD.OnSetupGa += JD_OnSetupGa;
+            JD.OnConfirmTip += JD_OnConfirmTip;
             string hash = "";
             JD.logging = true;
             if (Directory.Exists("JDDesktop"))
@@ -976,8 +977,17 @@ namespace JDCAPIExample
             JD.OnHistory += JD_OnHistory;
             JD.OnOldBets += JD_OnOldBets;
             JD.OnSetupGa += JD_OnSetupGa;
+            JD.OnConfirmTip += JD_OnConfirmTip;
             JD.logging = true;
             JD.Connect(false);
+        }
+
+        void JD_OnConfirmTip(string auth, string id, string amount, string Message)
+        {
+            if (MessageBox.Show("Click yes "+Message, "Confirm Tip", MessageBoxButtons.YesNo)== System.Windows.Forms.DialogResult.Yes)
+            {
+                JD.ConfirmTip(auth, id, amount);
+            }
         }
 
         private void btnResetProfit_Click(object sender, EventArgs e)

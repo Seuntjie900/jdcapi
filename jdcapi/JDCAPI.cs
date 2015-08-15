@@ -8,6 +8,7 @@ using System.IO;
 using System.Threading;
 using System.Net;
 using WebSocket4Net;
+//using WebSocketSharp;
 using System.IO.Compression;
 namespace JDCAPI
 {
@@ -15,14 +16,14 @@ namespace JDCAPI
     {
         WebProxy Proxy;
         HttpWebRequest request;
-        WebSocket4Net.WebSocket Client;
+        WebSocket Client;
         string conid = "";
         string id = "";
         string csrf = "";
         string xhrval = "";
         
         bool inconnection = false;
-        string host = "https://just-dice.coom";
+        string host = "https://just-dice.com";
         bool active = false;
         string privatehash = "";
         Thread poll = null;
@@ -309,7 +310,7 @@ namespace JDCAPI
         {
             xhrval = "";
 
-            host = "https://" + ((DogeDice) ? "doge" : "just") + "-dice.com";
+            host = "https://" + ((DogeDice) ? "test.just" : "just") + "-dice.com";
             request = (HttpWebRequest)HttpWebRequest.Create(host);
             //Initial request for getting headers and cookies from site
             bool _Connected = getInitalHeaders();
@@ -354,50 +355,50 @@ namespace JDCAPI
             }*/
             if (_Connected)
             {
-            List<KeyValuePair<string, string>> cookies = new List<KeyValuePair<string, string>>();
-            List<KeyValuePair<string, string>> headers = new List<KeyValuePair<string, string>>();
-            request.CookieContainer.Add(new Cookie("io", xhrval, "/", "just-dice.com"));
-            foreach (Cookie c in request.CookieContainer.GetCookies(new Uri("https://just-dice.com")))
-            {
-                cookies.Add(new KeyValuePair<string, string>(c.Name, c.Value));
-            }
-            headers.Add(new KeyValuePair<string, string>("origin","https://just-dice.com"));            
-            headers.Add(new KeyValuePair<string, string>("upgrade", "websocket"));
-            headers.Add(new KeyValuePair<string, string>("connection", "upgrade"));            
-            headers.Add(new KeyValuePair<string, string>("user-agent", "JDCAPI - "+UserAgent));            
-            headers.Add(new KeyValuePair<string, string>("accept-language", "en-GB,en-US;q=0.8,en;q=0.6"));
-            //headers.Add(new KeyValuePair<string, string>("Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits; server_no_context_takeover"));
-            Client = new WebSocket("wss://just-dice.com:443/socket.io/?EIO=3&transport=websocket&sid="+xhrval, "", cookies, headers);
-            Client.ReceiveBufferSize = 1024;            
-            Client.Opened += Client_Opened;
-            Client.Error += Client_Error;
-            Client.Closed += Client_Closed;
-            Client.MessageReceived += Client_MessageReceived;
-            Client.Open();
-            while (Client.State == WebSocketState.Connecting)
-            {
-                Thread.Sleep(100);
-            }
-            if (Client.State == WebSocketState.Open)
-            {
-                Client.Send("2probe");
-            }
-            active = true;
-            if (poll != null && poll.IsAlive)
-            {
-                active = false;
-                poll.Abort();
-            }
-            active = true;
+                List<KeyValuePair<string, string>> cookies = new List<KeyValuePair<string, string>>();
+                List<KeyValuePair<string, string>> headers = new List<KeyValuePair<string, string>>();
+                request.CookieContainer.Add(new Cookie("io", xhrval, "/", "just-dice.com"));
+                foreach (Cookie c in request.CookieContainer.GetCookies(new Uri("https://" +(DogeDice?"test.":"") + "just-dice.com")))
+                {
+                    cookies.Add(new KeyValuePair<string, string>(c.Name, c.Value));
+                }
+                headers.Add(new KeyValuePair<string, string>("origin", host));
+                headers.Add(new KeyValuePair<string, string>("upgrade", "websocket"));
+                headers.Add(new KeyValuePair<string, string>("connection", "upgrade"));
+                headers.Add(new KeyValuePair<string, string>("user-agent", "JDCAPI - " + UserAgent));
+                headers.Add(new KeyValuePair<string, string>("accept-language", "en-GB,en-US;q=0.8,en;q=0.6"));
+                //headers.Add(new KeyValuePair<string, string>("Sec-WebSocket-Extensions", "deflate; client_max_window_bits; server_no_context_takeover"));
+                Client = new WebSocket("wss://" + (DogeDice ? "test." : "") + "just-dice.com:443/socket.io/?EIO=3&transport=websocket&sid=" + xhrval, "", cookies, headers);
+                Client.ReceiveBufferSize = 1024;
+                Client.Opened += Client_Opened;
+                Client.Error += Client_Error;
+                Client.Closed += Client_Closed;
+                Client.MessageReceived += Client_MessageReceived;
+                Client.Open();
+                while (Client.State == WebSocketState.Connecting)
+                {
+                    Thread.Sleep(100);
+                }
+                if (Client.State == WebSocketState.Open)
+                {
+                    Client.Send("2probe");
+                }
+                active = true;
+                if (poll != null && poll.IsAlive)
+                {
+                    active = false;
+                    poll.Abort();
+                }
+                active = true;
 
-            poll = new Thread(new ThreadStart(pollingLoop));
-            poll.Start();
-            Connected = Client.State == WebSocketState.Open; 
+                poll = new Thread(new ThreadStart(pollingLoop));
+                poll.Start();
+                Connected = Client.State == WebSocketState.Open;
                 if (this.LoginEnd != null)
-            {
-                this.LoginEnd(Connected);
-            }
-            return Connected;
+                {
+                    this.LoginEnd(Connected);
+                }
+                return Connected;
             
         }
             else
@@ -411,6 +412,37 @@ namespace JDCAPI
             }
         }
 
+       /* void Client_OnOpen(object sender, EventArgs e)
+        {
+            Client.Send("2probe");
+        }
+
+        void Client_OnError(object sender, WebSocketSharp.ErrorEventArgs e)
+        {
+            throw new NotImplementedException();
+        }
+
+        void Client_OnClose(object sender, CloseEventArgs e)
+        {
+            
+        }
+
+        void Client_OnMessage(object sender, MessageEventArgs e)
+        {
+            if (logging)
+                writelog(e.Data);
+
+            if (!first)
+            {
+                Client.Send("5");
+                first = !first;
+
+            }
+            else
+            {
+                StartPorcessing(e.Data);
+            }
+        }*/
         void Client_DataReceived(object sender, DataReceivedEventArgs e)
         {
             //throw new NotImplementedException();
@@ -422,16 +454,17 @@ namespace JDCAPI
             try
             {
                 byte[] Bytes = System.Text.Encoding.UTF8.GetBytes(e.Message);
+                Bytes[0] = (byte)((int)Bytes[0] + 1);
                 Array.Resize<byte>(ref Bytes, Bytes.Length -2);
-                //Bytes[Bytes.Length - 4] = (byte)(0x00);
-                /*Bytes[Bytes.Length - 3] = (byte)(0x00);
+                /*Bytes[Bytes.Length - 4] = (byte)(0x00);
+                Bytes[Bytes.Length - 3] = (byte)(0x00);
                 Bytes[Bytes.Length - 2] = (byte)(0xff);
-                Bytes[Bytes.Length - 1] = (byte)(0xff);*/
-            /*
-                using (MemoryStream str = new MemoryStream(Bytes))
+                Bytes[Bytes.Length - 1] = (byte)(0xff);
+            */
+                /*using (MemoryStream str = new MemoryStream(Bytes))
                 {
                     //str.ReadByte(); str.ReadByte();
-                    using (DeflateStream decompressionStream = new DeflateStream(str, CompressionMode.Decompress))
+                    using (DeflateStream decompressionStream = new DeflateStream (str, CompressionMode.Decompress))
                     {
                         using (StreamReader sr = new StreamReader(decompressionStream))
                         {
@@ -442,26 +475,27 @@ namespace JDCAPI
             }
             catch
             {
-
             }*/
             if (logging)
                 writelog(e.Message);
-            
-            if (!first)
+
+            if (e.Message == "3probe")
             {
+                Thread.Sleep(1510);
                 Client.Send("5");
                 first = !first;
-            
+
             }
             else
             {
                 StartPorcessing(e.Message);
             }
-            
-            
+
+
             //throw new NotImplementedException();
         }
 
+        
 
         void Client_Closed(object sender, EventArgs e)
         {
@@ -477,7 +511,8 @@ namespace JDCAPI
         {
             //throw new NotImplementedException();
         }
-
+       
+        
       
         /// <summary>
         /// Log into the site using a secret hash
@@ -506,10 +541,10 @@ namespace JDCAPI
         public bool Connect(bool DogeDice, string Username, string Password, string GACode)
         {
             xhrval = "";
-            
-            
-            privatehash = (!DogeDice) ? "0f3aa87b64103349a9cabcccbb312e606e9013c3eee8f364b9ee4e91ad2c67d3" : "0fc4126d7045e16c05d18b6fda82324c2f987ac7f51317f317d6488680a37668";
-            host = "https://" + ((DogeDice) ? "doge" : "just") + "-dice.com";
+
+
+            privatehash = (!DogeDice) ? "0f3aa87b64103349a9cabcccbb312e606e9013c3eee8f364b9ee4e91ad2c67d3" : "6fba23685788919b1cfc47ba4346ab671ea1cc89c9987b894d7a21eb3a8714b8";
+            host = "https://" + ((DogeDice) ? "test.just" : "just") + "-dice.com";
             request = (HttpWebRequest)HttpWebRequest.Create(host);
             sUsername = Username;
             sPassword = Password;
@@ -570,19 +605,20 @@ namespace JDCAPI
             }*/
             if (_Connected)
             {
-                List<KeyValuePair<string, string>> cookies = new List<KeyValuePair<string, string>>();
+            List<KeyValuePair<string, string>> cookies = new List<KeyValuePair<string, string>>();
                 List<KeyValuePair<string, string>> headers = new List<KeyValuePair<string, string>>();
                 request.CookieContainer.Add(new Cookie("io", xhrval, "/", "just-dice.com"));
-                foreach (Cookie c in request.CookieContainer.GetCookies(new Uri("https://just-dice.com")))
+                foreach (Cookie c in request.CookieContainer.GetCookies(new Uri("https://" +(DogeDice?"test.":"") + "just-dice.com")))
                 {
                     cookies.Add(new KeyValuePair<string, string>(c.Name, c.Value));
                 }
-                headers.Add(new KeyValuePair<string, string>("origin", "https://just-dice.com"));
+                headers.Add(new KeyValuePair<string, string>("origin", host));
                 headers.Add(new KeyValuePair<string, string>("upgrade", "websocket"));
                 headers.Add(new KeyValuePair<string, string>("connection", "upgrade"));
                 headers.Add(new KeyValuePair<string, string>("user-agent", "JDCAPI - " + UserAgent));
                 headers.Add(new KeyValuePair<string, string>("accept-language", "en-GB,en-US;q=0.8,en;q=0.6"));
-                Client = new WebSocket("wss://just-dice.com:443/socket.io/?EIO=3&transport=websocket&sid=" + xhrval, "", cookies, headers);
+                //headers.Add(new KeyValuePair<string, string>("Sec-WebSocket-Extensions", "deflate; client_max_window_bits; server_no_context_takeover"));
+                Client = new WebSocket("wss://" + (DogeDice ? "test." : "") + "just-dice.com:443/socket.io/?EIO=3&transport=websocket&sid=" + xhrval, "", cookies, headers);
                 Client.ReceiveBufferSize = 1024;
                 Client.Opened += Client_Opened;
                 Client.Error += Client_Error;
@@ -597,7 +633,23 @@ namespace JDCAPI
                 {
                     Client.Send("2probe");
                 }
-                return Client.State == WebSocketState.Open;
+                active = true;
+                if (poll != null && poll.IsAlive)
+                {
+                    active = false;
+                    poll.Abort();
+                }
+                active = true;
+
+                poll = new Thread(new ThreadStart(pollingLoop));
+                poll.Start();
+                Connected = Client.State == WebSocketState.Open;
+                if (this.LoginEnd != null)
+                {
+                    this.LoginEnd(Connected);
+                }
+                return Connected;
+
             }
             else
             {
@@ -676,7 +728,7 @@ namespace JDCAPI
             request.UserAgent = "JDCAPI - " + UserAgent;
             if (!string.IsNullOrEmpty(privatehash))
             {
-                request.CookieContainer.Add(new Cookie("hash", privatehash, "/", (host.Contains("just")) ? ".just-dice.com" : ".doge-dice.com"));
+                request.CookieContainer.Add(new Cookie("hash", privatehash, "/", (host.Contains("just")) ? ".just-dice.com" : ".test.just-dice.com"));
             }
             //request.CookieContainer.Add(new Cookie("cf_clearance", "bc22bf9b9733912f976dc28c78796fc91e19b7fe-1393330223-86400", "/", ".just-dice.com"));
             HttpWebResponse Response = null;
@@ -812,7 +864,7 @@ namespace JDCAPI
                         if (CurCookie.Contains("hash"))
                         {
                             string HashValue = CurCookie.Split('=')[1];
-                            request.CookieContainer.Add(new Cookie("hash", HashValue,"/",".just-dice.com"));
+                            request.CookieContainer.Add(new Cookie("hash", HashValue,"/",host.Substring("https://".Length)));
                             privatehash = HashValue;
                             founhash = true;
                             break;
@@ -840,11 +892,11 @@ namespace JDCAPI
             Disconnect();
             if (!string.IsNullOrEmpty(sUsername) & !string.IsNullOrEmpty(sPassword))
             {
-                Connect((host.Contains("doge") ? true : false), sUsername, sPassword, sGAcode);
+                Connect((host.Contains("test.just") ? true : false), sUsername, sPassword, sGAcode);
             }
             else
             {
-                Connect((host.Contains("doge") ? true : false),privatehash);
+                Connect((host.Contains("test.just") ? true : false),privatehash);
             }
         }
 
@@ -910,7 +962,7 @@ namespace JDCAPI
                     }
                 }
                 bool poll = true;
-                if (Client!=null)
+                if (Client != null)
                 {
                     if (Client.State == WebSocketState.Open)
                     {
@@ -922,12 +974,15 @@ namespace JDCAPI
                     }
                     poll = Client.State != WebSocketState.Open;
                 }
-                if (!inconnection)
+                else
                 {
-                    inconnection = true;
-                    GetInfo();
-                    inconnection = false;
-                    
+                    if (!inconnection)
+                    {
+                        inconnection = true;
+                        GetInfo();
+                        inconnection = false;
+
+                    }
                 }
                 /*if (!bGotLastResult && (DateTime.Now - Lastbet).TotalSeconds >= 7)
                 {
@@ -1017,6 +1072,7 @@ namespace JDCAPI
         }
         private void StartPorcessing(string s2)
         {
+            
             if (s2.Length > 5)
             {
                 List<string> returns = new List<string>();
@@ -1208,8 +1264,18 @@ namespace JDCAPI
 
         private void ProcessHistory(string JsonString)
         {
-           
-            History tmp = json.JsonDeserialize<History>("{"+JsonString+"}");
+            object[] obs = json.JsonDeserialize<object[]>("["+ JsonString +"]");
+            string s = JsonString.Substring(JsonString.IndexOf("["));
+            
+
+            History tmp = new History ();
+            switch ( obs[0] as string )
+            {
+                case "withdraw": tmp.withdraw = json.JsonDeserialize<WithdrawHistory[]>(s); break;
+                case  "deposit":tmp.deposit = json.JsonDeserialize<DepositHistory[]>(s);break;
+                case  "invest":tmp.invest = json.JsonDeserialize<InvestHistory[]>(s);break;
+                case "commission": tmp.commission = json.JsonDeserialize<CommissionHistory[]>(s); break;
+            }
             if (OnHistory != null)
                 OnHistory(tmp);
         }
@@ -1262,11 +1328,11 @@ namespace JDCAPI
             tmp.multiplier = decimal.Parse(multiplier, System.Globalization.CultureInfo.InvariantCulture);
             s3 = s3.Substring(s3.IndexOf("</span>") + 7);
             string stake = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
-            stake = stake.Substring(stake.IndexOf(">") + 1).ToLower().Replace("doge", "").Replace("btc", "").Replace(" ", "");
+            stake = stake.Substring(stake.IndexOf(">") + 1).ToLower().Replace("test.just", "").Replace("btc", "").Replace(" ", "");
             tmp.stake = decimal.Parse(stake, System.Globalization.CultureInfo.InvariantCulture);
             s3 = s3.Substring(s3.IndexOf("</span>") + 7);
             string profit = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
-            profit = profit.Substring(profit.IndexOf(">") + 1).ToLower().Replace("doge", "").Replace("btc", "").Replace(" ", "");
+            profit = profit.Substring(profit.IndexOf(">") + 1).ToLower().Replace("test.just", "").Replace("btc", "").Replace(" ", "");
             tmp.profit = decimal.Parse(profit, System.Globalization.CultureInfo.InvariantCulture);
             s3 = s3.Substring(s3.IndexOf("</span>") + 7);
             string chance = s3.Substring(s3.IndexOf("<span>"), s3.IndexOf("</span>") - s3.IndexOf("<span>"));
@@ -1401,9 +1467,24 @@ namespace JDCAPI
                  {
                      ProcessTip(tmp.args[0]);
                  }
+                 if (tmp.args[0].StartsWith("INFO: /tip auth="))
+                 {
+                     ProcessTipConfirmation(tmp.args[0]);
+                 }
                  if (OnChatInfo != null && !logginging)
                      OnChatInfo(tmp.args[0]);
              }
+        }
+        void ProcessTipConfirmation(string Message)
+        {
+            string works = Message.Substring(Message.IndexOf("=") + 1);
+            string message = works.Substring(works.IndexOf("--") + 3);
+            string[] args = works.Split(' ');
+            if (OnConfirmTip!=null)
+            {
+                OnConfirmTip(args[0], args[1], args[2], message);
+            }
+            
         }
 
         private void ProcessTip(string Message)
@@ -1437,7 +1518,7 @@ namespace JDCAPI
             }
             if (!found)
             {
-                request.CookieContainer.Add(new Cookie("hash", tmp, "/", ".just-dice.com"));
+                request.CookieContainer.Add(new Cookie("hash", tmp, "/", host.Substring("https://".Length)));
 
             }
             privatehash = tmp;
@@ -1455,7 +1536,7 @@ namespace JDCAPI
             }
             if (!found)
             {
-                request.CookieContainer.Add(new Cookie("io", xhrval, "/", "just-dice.com"));
+                request.CookieContainer.Add(new Cookie("io", xhrval, "/", host.Substring("https://".Length)));
 
             }
             Client.Close();
@@ -1463,35 +1544,52 @@ namespace JDCAPI
             {
                 GetInfo();
             }
-            List<KeyValuePair<string, string>> cookies = new List<KeyValuePair<string, string>>();
-            List<KeyValuePair<string, string>> headers = new List<KeyValuePair<string, string>>();
+                        
             
-            foreach (Cookie c in request.CookieContainer.GetCookies(new Uri("https://just-dice.com")))
-            {
-                cookies.Add(new KeyValuePair<string, string>(c.Name, c.Value));
-            }
-            headers.Add(new KeyValuePair<string, string>("origin", "https://just-dice.com"));
-            headers.Add(new KeyValuePair<string, string>("upgrade", "websocket"));
-            headers.Add(new KeyValuePair<string, string>("connection", "upgrade"));
-            headers.Add(new KeyValuePair<string, string>("user-agent", "JDCAPI - " + UserAgent));
-            headers.Add(new KeyValuePair<string, string>("accept-language", "en-GB,en-US;q=0.8,en;q=0.6"));
+                List<KeyValuePair<string, string>> cookies = new List<KeyValuePair<string, string>>();
+                List<KeyValuePair<string, string>> headers = new List<KeyValuePair<string, string>>();
+                request.CookieContainer.Add(new Cookie("io", xhrval, "/", "just-dice.com"));
+                foreach (Cookie c in request.CookieContainer.GetCookies(new Uri(host)))
+                {
+                    cookies.Add(new KeyValuePair<string, string>(c.Name, c.Value));
+                }
+                headers.Add(new KeyValuePair<string, string>("origin", host));
+                headers.Add(new KeyValuePair<string, string>("upgrade", "websocket"));
+                headers.Add(new KeyValuePair<string, string>("connection", "upgrade"));
+                headers.Add(new KeyValuePair<string, string>("user-agent", "JDCAPI - " + UserAgent));
+                headers.Add(new KeyValuePair<string, string>("accept-language", "en-GB,en-US;q=0.8,en;q=0.6"));
+                //headers.Add(new KeyValuePair<string, string>("Sec-WebSocket-Extensions", "deflate; client_max_window_bits; server_no_context_takeover"));
+                Client = new WebSocket("wss://" + (host.Contains("test") ? "test." : "") + "just-dice.com:443/socket.io/?EIO=3&transport=websocket&sid=" + xhrval, "", cookies, headers);
+                Client.ReceiveBufferSize = 1024;
+                Client.Opened += Client_Opened;
+                Client.Error += Client_Error;
+                Client.Closed += Client_Closed;
+                Client.MessageReceived += Client_MessageReceived;
+                Client.Open();
+                while (Client.State == WebSocketState.Connecting)
+                {
+                    Thread.Sleep(100);
+                }
+                if (Client.State == WebSocketState.Open)
+                {
+                    Client.Send("2probe");
+                }
+                active = true;
+                if (poll != null && poll.IsAlive)
+                {
+                    active = false;
+                    poll.Abort();
+                }
+                active = true;
+
+                poll = new Thread(new ThreadStart(pollingLoop));
+                poll.Start();
+                Connected = Client.State == WebSocketState.Open;
+                if (this.LoginEnd != null)
+                {
+                    this.LoginEnd(Connected);
+                }
                 
-            Client = new WebSocket("wss://just-dice.com:443/socket.io/?EIO=3&transport=websocket&sid=" + xhrval, "", cookies, headers);
-            Client.ReceiveBufferSize = 1024;
-            Client.Opened += Client_Opened;
-            Client.Error += Client_Error;
-            Client.Closed += Client_Closed;
-            Client.MessageReceived += Client_MessageReceived;
-            Client.Open();
-            while (Client.State == WebSocketState.Connecting)
-            {
-                Thread.Sleep(100);
-            }
-            if (Client.State == WebSocketState.Open)
-            {
-                first = false;
-                Client.Send("2probe");
-            }
             
             
         }
@@ -1606,7 +1704,15 @@ namespace JDCAPI
         #endregion
           
 
+
         #region Emits
+        public void ConfirmTip(string auth, string id, string amount)
+        {
+            Thread tDeposit = new Thread(new ParameterizedThreadStart(Emit));
+            string tmp = "[\"chat\",\"" + csrf + "\",\"/tip auth=" + auth + " " + id + " " + amount + "\"]";
+            tDeposit.Start(tmp);
+        }
+
         public void Repeat()
         {
             Lastbet = DateTime.Now;
@@ -1816,6 +1922,7 @@ namespace JDCAPI
         int emitlevel = 0;
         private void Emit(object Message)
         {
+            if (Client.State == WebSocketState.Open)
             Client.Send(Message as string);
             //inconnection = true;
             /*try
@@ -1871,6 +1978,10 @@ namespace JDCAPI
         #endregion
 
         #region Events
+        public delegate void dTipComfirm(string auth, string id, string amount, string message);
+        public event dTipComfirm OnConfirmTip;
+        
+
         //non message chat event
         public delegate void dOnChatInfo(string Message);
         public event dOnChatInfo OnChatInfo;

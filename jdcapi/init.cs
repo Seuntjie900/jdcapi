@@ -62,7 +62,12 @@ namespace JDCAPI
             chatstake = true;
             mutechat = false;
             alarm = false;
-
+            pmding = false;
+            alert = false; 
+            randomkey = false;
+            togglekey = false;
+            samekey = false;
+            alert_words = "";
         }
         //settings":{"btcaddr":"1M1zUqZUZg6AH4KQdq9AUoouQgWHdQzySd","watch_player":null,"roll_delay":null,"autoinvest":1,"chat_min_risk":5,"chat_min_change":5,"min_risk":1,"chat_watch_player":null,"min_change":1,"max_double":null,"allbetsme":1,"mutechat":0,"shortcuts":1,"chatstake":0,"alarm":0}
         public string btcaddr { get; set; }
@@ -80,7 +85,12 @@ namespace JDCAPI
         public bool shortcuts { get; set; }
         public bool chatstake { get; set; }
         public bool alarm { get; set; }
-
+        public bool pmding { get; set; }
+        public bool alert { get; set; }
+        public bool randomkey { get; set; }
+        public bool togglekey { get; set; }
+        public bool samekey { get; set; }
+        public string alert_words { get; set; }
     }
     public class initbase
     {
