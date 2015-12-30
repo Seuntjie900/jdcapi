@@ -323,36 +323,7 @@ namespace JDCAPI
                     _Connected = false;
                 GetInfo();
             }
-            /*if (_Connected)
-            {
-                active = true;
-                if (poll != null && poll.IsAlive)
-                {
-                    active = false;
-                    poll.Abort();
-                }
-                active = true;
-
-                poll = new Thread(new ThreadStart(pollingLoop));
-                poll.Start();
-                Connected = true;
-                if (this.LoginEnd != null)
-                {
-                    this.LoginEnd(Connected);
-                }
-                return Connected;
-
-            }
-            else
-            {
-                Connected = false;
-                if (this.LoginEnd != null)
-                {
-                    this.LoginEnd(Connected);
-                }
-                Connected = false;
-                return Connected;
-            }*/
+            
             if (_Connected)
             {
                 List<KeyValuePair<string, string>> cookies = new List<KeyValuePair<string, string>>();
@@ -381,7 +352,7 @@ namespace JDCAPI
                 }
                 if (Client.State == WebSocketState.Open)
                 {
-                    Client.Send("2probe");
+                    
                     active = true;
                     if (poll != null && poll.IsAlive)
                     {
@@ -460,35 +431,10 @@ namespace JDCAPI
         {
             //throw new NotImplementedException();
         }
-        bool first = false;
+        
         void Client_MessageReceived(object sender, MessageReceivedEventArgs e)
         {
-            /*string s = "";
-            try
-            {
-                byte[] Bytes = System.Text.Encoding.UTF8.GetBytes(e.Message);
-                Bytes[0] = (byte)((int)Bytes[0] + 1);
-                Array.Resize<byte>(ref Bytes, Bytes.Length -2);
-                /*Bytes[Bytes.Length - 4] = (byte)(0x00);
-                Bytes[Bytes.Length - 3] = (byte)(0x00);
-                Bytes[Bytes.Length - 2] = (byte)(0xff);
-                Bytes[Bytes.Length - 1] = (byte)(0xff);
-            */
-                /*using (MemoryStream str = new MemoryStream(Bytes))
-                {
-                    //str.ReadByte(); str.ReadByte();
-                    using (DeflateStream decompressionStream = new DeflateStream (str, CompressionMode.Decompress))
-                    {
-                        using (StreamReader sr = new StreamReader(decompressionStream))
-                        {
-                            s = sr.ReadToEnd();
-                        }
-                    }
-                }
-            }
-            catch
-            {
-            }*/
+            
             if (logging)
                 writelog(e.Message);
 
@@ -496,7 +442,7 @@ namespace JDCAPI
             {
                 //Thread.Sleep(1510);
                 Client.Send("5");
-                first = !first;
+                
                 SocketConnected = true;
             }
             else
@@ -516,14 +462,34 @@ namespace JDCAPI
             SocketConnected = false;
         }
 
+        int ReconCount = 0;
         void Client_Error(object sender, SuperSocket.ClientEngine.ErrorEventArgs e)
         {
-            this.Connected = false;
-            SocketConnected = false;
+            try
+            {
+                if (active && ReconCount<3)
+                {
+                    ReconCount++;
+                    Client.Open();
+                    
+                }
+                else
+                {
+                    this.Connected = false;
+                    SocketConnected = false;
+                }
+            }
+            catch
+            {
+                this.Connected = false;
+                SocketConnected = false;
+            }
         }
 
         void Client_Opened(object sender, EventArgs e)
         {
+            Client.Send("2probe");
+            ReconCount = 0;
             //throw new NotImplementedException();
         }
        
@@ -597,27 +563,7 @@ namespace JDCAPI
                     _Connected = false;
                 GetInfo();
             }
-            /*if (_Connected)
-            {
-                active = true;
-                Thread poll = new Thread(new ThreadStart(pollingLoop));
-                poll.Start();
-                Connected = true;
-                if (this.LoginEnd != null)
-                {
-                    this.LoginEnd(Connected);
-                }
-                return Connected;
-            }
-            else
-            {
-                Connected = false;
-                if (this.LoginEnd != null)
-                {
-                    this.LoginEnd(Connected);
-                }
-                return Connected;
-            }*/
+            
             if (_Connected)
             {
             List<KeyValuePair<string, string>> cookies = new List<KeyValuePair<string, string>>();
@@ -985,7 +931,7 @@ namespace JDCAPI
                 {
                     if (Client.State == WebSocketState.Open)
                     {
-                        if ((DateTime.Now - LastHeartbeat).TotalSeconds >= 30)
+                        if ((DateTime.Now - LastHeartbeat).TotalSeconds >= 25)
                         {
                             LastHeartbeat = DateTime.Now;
                             Client.Send("2");
