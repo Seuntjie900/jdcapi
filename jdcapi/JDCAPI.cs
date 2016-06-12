@@ -460,6 +460,12 @@ namespace JDCAPI
         {
             this.Connected = false;
             SocketConnected = false;
+            if (active && Client.State != WebSocketState.Open)
+            {
+                ReconCount++;
+                this.Reconnect();
+
+            }
         }
 
         int ReconCount = 0;
@@ -467,10 +473,10 @@ namespace JDCAPI
         {
             try
             {
-                if (active && ReconCount<3)
+                if (active && ReconCount<3 && Client.State != WebSocketState.Open)
                 {
                     ReconCount++;
-                    Client.Open();
+                    //this.Reconnect();
                     
                 }
                 else
@@ -839,29 +845,60 @@ namespace JDCAPI
             }
             return true;
         }
-        
+
+        Thread ReconThread = null;
+        DateTime LastReconAttempt = DateTime.Now;
         /// <summary>
         /// not yet implemented, will not be needed after ping has been added
         /// </summary>
         /// <returns></returns>
         public void Reconnect()
         {
-            if (OnJDError!=null)
+            if (ReconThread == null)
             {
-                Various var = new Various();
-                var.name = "reconnect";
-                var.args = new System.Collections.ArrayList();
-                var.args.Add("Reconnecting");
-                OnJDError(var.args[0].ToString());
+                ReconThread = new Thread(Reconnect);
+                ReconThread.Start();
+                return;
             }
-            Disconnect();
-            if (!string.IsNullOrEmpty(sUsername) & !string.IsNullOrEmpty(sPassword))
+            else if (!ReconThread.IsAlive)
             {
-                Connect((host.Contains("test.just") ? true : false), sUsername, sPassword, sGAcode);
+                ReconThread = new Thread(Reconnect);
+                ReconThread.Start();
+                return;
             }
             else
             {
-                Connect((host.Contains("test.just") ? true : false),privatehash);
+                if (OnJDError != null)
+                {
+                    Various var = new Various();
+                    var.name = "reconnect";
+                    var.args = new System.Collections.ArrayList();
+                    var.args.Add("Reconnecting");
+                    OnJDError(var.args[0].ToString());
+                }
+                while (active)
+                {
+                    if ((DateTime.Now - LastReconAttempt).TotalSeconds > 15)
+                    {
+
+                        try
+                        {
+                            ReconDisconnect();
+                            if (!string.IsNullOrEmpty(sUsername) & !string.IsNullOrEmpty(sPassword))
+                            {
+                                if (Connect((host.Contains("test.just") ? true : false), sUsername, sPassword, sGAcode))
+                                    return;
+                            }
+                            else
+                            {
+                                if (Connect((host.Contains("test.just") ? true : false), privatehash))
+                                    return;
+                            }
+                        }
+                        catch { }
+                    }
+                    Thread.Sleep(500);
+                }
             }
         }
 
@@ -872,6 +909,17 @@ namespace JDCAPI
         {
             active = false;
             //Clear all of the cookies
+            request = (HttpWebRequest)HttpWebRequest.Create(host);
+            if (Proxy != null)
+                request.Proxy = Proxy;
+            hash = "";
+            conid = "";
+            id = "";
+            Thread.Sleep(300);
+        }
+
+        public void ReconDisconnect()
+        {
             request = (HttpWebRequest)HttpWebRequest.Create(host);
             if (Proxy != null)
                 request.Proxy = Proxy;
@@ -916,39 +964,43 @@ namespace JDCAPI
 
         private void pollingLoop()
         {
-            while (active) 
+            while (active)
             {
-                for (int i = 0; i < request.CookieContainer.GetCookies(request.RequestUri).Count; i++)
+                try
                 {
-                    if (request.CookieContainer.GetCookies(request.RequestUri)[i].Name == "cf_clearance" && request.CookieContainer.GetCookies(request.RequestUri)[i].Expired)
+                    for (int i = 0; i < request.CookieContainer.GetCookies(request.RequestUri).Count; i++)
                     {
-                        Thread trecon = new Thread(new ThreadStart(Reconnect));
-                        trecon.Start();
-                    }
-                }
-                bool poll = true;
-                if (Client != null)
-                {
-                    if (Client.State == WebSocketState.Open)
-                    {
-                        if ((DateTime.Now - LastHeartbeat).TotalSeconds >= 25)
+                        if (request.CookieContainer.GetCookies(request.RequestUri)[i].Name == "cf_clearance" && request.CookieContainer.GetCookies(request.RequestUri)[i].Expired)
                         {
-                            LastHeartbeat = DateTime.Now;
-                            Client.Send("2");
+                            Thread trecon = new Thread(new ThreadStart(Reconnect));
+                            trecon.Start();
                         }
                     }
-                    poll = Client.State != WebSocketState.Open;
-                }
-                else
-                {
-                    if (!inconnection)
+                    bool poll = true;
+                    if (Client != null)
                     {
-                        inconnection = true;
-                        GetInfo();
-                        inconnection = false;
+                        if (Client.State == WebSocketState.Open)
+                        {
+                            if ((DateTime.Now - LastHeartbeat).TotalSeconds >= 25)
+                            {
+                                LastHeartbeat = DateTime.Now;
+                                Client.Send("2");
+                            }
+                        }
+                        poll = Client.State != WebSocketState.Open;
+                    }
+                    else
+                    {
+                        if (!inconnection)
+                        {
+                            inconnection = true;
+                            GetInfo();
+                            inconnection = false;
 
+                        }
                     }
                 }
+                catch { }
                 /*if (!bGotLastResult && (DateTime.Now - Lastbet).TotalSeconds >= 7)
                 {
                     Repeat();
@@ -1892,7 +1944,9 @@ namespace JDCAPI
         private void Emit(object Message)
         {
             if (Client.State == WebSocketState.Open)
-            Client.Send(Message as string);
+                Client.Send(Message as string);
+            else if (active)
+                Reconnect();
             //inconnection = true;
             /*try
             {
